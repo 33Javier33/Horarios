@@ -3,22 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Turnos Pro - Sync Auto</title>
+    <title>Turnos Pro - App</title>
     
+    <!-- PWA CONFIG -->
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- LIBRERÍAS EXTERNAS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <script>
-        // ==========================================
-        // CONFIGURACIÓN DE NUBE (PEGAR URL AQUÍ)
-        // ==========================================
+        // ========================================================
+        // ⚠️ PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
+        // ========================================================
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTofAF66XuOSfdvC-AF4FxE7SKHQC25shlxM5uqIxTPHBQ2gmrF_YjCXz3GnaA46X2fw/exec"; 
-        // ==========================================
+        // ========================================================
 
         tailwind.config = { darkMode: 'class' }
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -71,8 +76,6 @@
         @keyframes toast-in { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         /* Sync Indicator */
         #cloud-status { position: fixed; top: 10px; right: 10px; z-index: 50; transition: opacity 0.3s;}
-        .syncing { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -111,7 +114,7 @@
             <div id="calendar-wrapper"></div>
         </div>
         <div class="text-center py-8">
-            <div class="brand-footer italic">CarlosPN Interactive®</div>
+            <div class="brand-footer italic">CarlosPN Interactive® 2026</div>
         </div>
     </main>
 
@@ -296,29 +299,21 @@
             } catch (e) { appData = { profiles: [createDefaultProfile()], activeProfileId: null }; activeProfile = appData.profiles[0]; }
         }
 
-        // ==========================================
-        // LÓGICA SYNC AUTOMÁTICA
-        // ==========================================
         let cloudDebounceTimer;
-
-        // Sobreescribimos el guardado local para lanzar el guardado en nube
         function saveToLocalStorage() { 
             localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
             
-            // Disparamos la sincronización con un pequeño retraso (debounce)
             clearTimeout(cloudDebounceTimer);
-            
-            // Indicador visual "Esperando para guardar..."
             const statusEl = document.getElementById('cloud-status');
             statusEl.classList.remove('hidden');
             
             cloudDebounceTimer = setTimeout(() => {
                 syncCloudData('SAVE');
-            }, 2000); // 2 segundos de espera tras el último cambio
+            }, 2000); 
         }
 
         async function syncCloudData(action) {
-            if(GOOGLE_SCRIPT_URL === "PEGAR_TU_URL_DE_APPS_SCRIPT_AQUI" || GOOGLE_SCRIPT_URL === "") {
+            if(GOOGLE_SCRIPT_URL === "PEGAR_TU_URL_AQUI" || GOOGLE_SCRIPT_URL === "") {
                 if(action === 'SAVE') showToast("⚠️ Configura la URL del Script", "error");
                 return;
             }
@@ -329,28 +324,22 @@
             
             try {
                 const payload = { action: action, payload: action === 'SAVE' ? appData : null };
-                
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 });
-
                 const result = await response.json();
 
                 if (result.status === "success") {
                     if(action === 'LOAD' && result.data) {
                         appData = result.data;
-                        // Guardamos en local SIN disparar el evento de subida otra vez
                         localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
-                        
-                        // Aseguramos perfil activo
                         activeProfile = appData.profiles.find(p => p.id === appData.activeProfileId) || appData.profiles[0];
                         refreshAllUI();
                         showToast("✅ Datos Nube Cargados");
                         statusText.textContent = "Última carga: " + new Date().toLocaleTimeString();
                     } else {
-                        // Fue un SAVE exitoso
                         statusText.textContent = "Guardado en nube: " + new Date().toLocaleTimeString();
                     }
                     setTimeout(() => statusEl.classList.add('hidden'), 2000);
@@ -359,19 +348,17 @@
                 }
             } catch (err) {
                 console.error(err);
-                if(action === 'LOAD') showToast("Modo Offline (Sin Nube)", "info"); // Normal al inicio si no hay internet
+                if(action === 'LOAD') showToast("Modo Offline (Sin Nube)", "info"); 
                 else showToast("❌ Error Conexión", "error");
                 statusEl.classList.add('hidden');
             }
         }
-        // ==========================================
 
         function refreshAllUI() { renderProfileManager(); renderShiftManager(); updateConfigControls(); renderCurrentCalendar(); updateCountdown(); document.getElementById('current-user-name').textContent = activeProfile.name; }
 
         function switchProfile(id) { 
             if(document.getElementById('profile-drag-check').checked) return;
             appData.activeProfileId = id; activeProfile = appData.profiles.find(p => p.id === id); 
-            // Al cambiar perfil, guardamos (y por tanto sincronizamos)
             saveToLocalStorage(); refreshAllUI(); closeAllSheets(); showToast(`Perfil: ${activeProfile.name}`); 
         }
 
@@ -382,15 +369,13 @@
             appData.profiles.push(newP); input.value = ''; switchProfile(newP.id);
         }
 
-        // --- NUEVA FUNCIÓN PARA EDITAR NOMBRE ---
         function editProfileName(id) {
             const p = appData.profiles.find(x => x.id === id);
             if (!p) return;
-            
             const newName = prompt("Nuevo nombre para el perfil:", p.name);
             if (newName && newName.trim() !== "" && newName !== p.name) {
                 p.name = newName.trim();
-                saveToLocalStorage(); // Esto dispara la sincronización con el nuevo nombre
+                saveToLocalStorage();
                 refreshAllUI();
                 showToast("Nombre actualizado");
             }
@@ -629,13 +614,14 @@
         }
 
         window.onload = async () => {
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(r=>console.log('SW',r)).catch(e=>console.log('SW Error',e)); }
+            
             const today = new Date(); currentDisplayYear = today.getFullYear(); currentDisplayMonth = today.getMonth();
             monthNames.forEach((m, i) => document.getElementById('displayMonth').add(new Option(m, i)));
             for(let i=-5; i<=5; i++) document.getElementById('displayYear').add(new Option(currentDisplayYear+i, currentDisplayYear+i));
             loadFromLocalStorage(); 
             refreshAllUI();
             
-            // INTENTAR CARGAR NUBE AL INICIAR
             await syncCloudData('LOAD');
         };
     </script>
