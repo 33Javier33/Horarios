@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Turnos Pro - Sync Auto</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script>
+        // ==========================================
+        // CONFIGURACIÓN DE NUBE (PEGAR URL AQUÍ)
+        // ==========================================
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTofAF66XuOSfdvC-AF4FxE7SKHQC25shlxM5uqIxTPHBQ2gmrF_YjCXz3GnaA46X2fw/exec"; 
+        // ==========================================
+
+        tailwind.config = { darkMode: 'class' }
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.theme = isDark ? 'dark' : 'light';
+        }
+    </script>
+    
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; touch-action: manipulation; padding-bottom: 110px; transition: background-color 0.3s ease; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .day-cell {
+            position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 14px; font-weight: 700; height: 12.5vw; max-height: 85px; min-height: 62px;
+            font-size: clamp(0.75rem, 2.5vw, 1rem); overflow: hidden; border: 1px solid transparent;
+        }
+        .assigned-shift .shift-name-label, .free-day .free-day-label {
+            font-size: 0.58rem; margin-top: 3px; font-weight: 800; text-align: center; width: 100%;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+            word-break: break-all; padding: 0 2px; line-height: 1;
+        }
+        .today { outline: 3px solid #4f46e5; outline-offset: -3px; }
+        .day-selected { transform: scale(0.9); opacity: 0.6; }
+        .bottom-nav {
+            position: fixed; bottom: 20px; left: 20px; right: 20px; height: 65px;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px); border-radius: 22px;
+            display: flex; justify-content: space-around; align-items: center; z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .dark .bottom-nav { background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .bottom-sheet {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+            z-index: 150; padding: 25px; padding-bottom: 60px; max-height: 85vh; overflow-y: auto;
+            border-top-left-radius: 32px; border-top-right-radius: 32px;
+        }
+        .bottom-sheet.open { transform: translateY(0); }
+        .drag-handle { display: none; width: 45px; height: 100%; align-items: center; justify-content: center; color: #94a3b8; touch-action: none; }
+        .drag-enabled .drag-handle { display: flex; }
+        .dragging { opacity: 0.5; background: #e0e7ff !important; transform: scale(1.02); z-index: 100; }
+        .dark .dragging { background: #1e1b4b !important; }
+        .draggable-item { transition: background 0.2s; }
+        .brand-footer { font-size: 10px; font-weight: 800; letter-spacing: 0.4em; text-transform: uppercase; color: #94a3b8; }
+        .toast { padding: 12px 24px; border-radius: 16px; color: white; font-weight: 700; box-shadow: 0 10px 20px rgba(0,0,0,0.2); animation: toast-in 0.3s ease-out; }
+        @keyframes toast-in { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* Sync Indicator */
+        #cloud-status { position: fixed; top: 10px; right: 10px; z-index: 50; transition: opacity 0.3s;}
+        .syncing { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+
+    <div id="toast-container" class="fixed bottom-28 left-0 right-0 flex flex-col items-center z-[200] space-y-2"></div>
+    
+    <!-- Cloud Status Indicator -->
+    <div id="cloud-status" class="hidden">
+        <span class="bg-indigo-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2">
+            <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            NUBE...
+        </span>
+    </div>
+
+    <header class="px-6 py-8 flex justify-between items-center">
+        <div>
+            <h1 id="current-user-name" class="text-2xl font-extrabold tracking-tight italic">Cargando...</h1>
+            <p id="countdown-container" class="text-[10px] font-extrabold text-indigo-500 uppercase mt-1 tracking-widest"></p>
+        </div>
+        <button onclick="toggleTheme()" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center border border-slate-200 dark:border-slate-800">
+            <svg class="w-6 h-6 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            <svg class="w-6 h-6 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.243 17.657l.707.707M6.343 6.343l.707-.707"/></svg>
+        </button>
+    </header>
+
+    <main class="px-3 sm:px-6">
+        <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm p-4 sm:p-8 border border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-8">
+                <button onclick="navigateMonth(-1)" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+                <div class="flex gap-2">
+                    <select id="displayMonth" onchange="jumpToDate()" class="text-lg font-extrabold bg-transparent dark:text-white border-none focus:ring-0"></select>
+                    <select id="displayYear" onchange="jumpToDate()" class="text-lg font-extrabold text-slate-400 bg-transparent border-none focus:ring-0"></select>
+                </div>
+                <button onclick="navigateMonth(1)" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+            <div id="calendar-wrapper"></div>
+        </div>
+        <div class="text-center py-8">
+            <div class="brand-footer italic">CarlosPN Interactive®</div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <button onclick="closeAllSheets()" class="nav-item active flex flex-col items-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span class="text-[9px] font-bold mt-1 uppercase">Hoy</span>
+        </button>
+        <button onclick="openSheet('sheet-profiles')" class="nav-item flex flex-col items-center text-slate-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span class="text-[9px] font-bold mt-1 uppercase">Perfiles</span>
+        </button>
+        <button onclick="openSheet('sheet-cycle')" class="nav-item flex flex-col items-center text-slate-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span class="text-[9px] font-bold mt-1 uppercase">Ciclo</span>
+        </button>
+        <button onclick="openSheet('sheet-shifts')" class="nav-item flex flex-col items-center text-slate-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-[9px] font-bold mt-1 uppercase">Turnos</span>
+        </button>
+        <button onclick="openSheet('sheet-data')" class="nav-item flex flex-col items-center text-slate-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2a4 4 0 10-8 0v2m8 0V4a2 2 0 10-4 0v13m4 0H5m11 3a2 2 0 100-4 2 2 0 000 4z"/></svg>
+            <span class="text-[9px] font-bold mt-1 uppercase">Nube</span>
+        </button>
+    </nav>
+
+    <div id="overlay" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden z-[140]" onclick="closeAllSheets()"></div>
+
+    <!-- PANEL PERFILES -->
+    <div id="sheet-profiles" class="bottom-sheet bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+        <h3 class="text-xl font-extrabold mb-6">Perfiles</h3>
+        <div class="flex items-center justify-between mb-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl">
+            <span class="text-xs font-bold text-slate-500 uppercase">Activar Ordenar</span>
+            <input type="checkbox" id="profile-drag-check" onchange="toggleProfileDragMode(this.checked)" class="w-6 h-6 rounded text-indigo-600">
+        </div>
+        <div id="profile-list" class="space-y-3 mb-6"></div>
+        <div class="flex gap-2">
+            <input type="text" id="new-profile-name" placeholder="Nuevo..." class="flex-grow px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm">
+            <button onclick="addProfile()" class="bg-indigo-600 text-white px-6 rounded-2xl font-bold">+</button>
+        </div>
+    </div>
+
+    <!-- PANEL CICLO -->
+    <div id="sheet-cycle" class="bottom-sheet bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+        <h3 class="text-xl font-extrabold mb-6">Ciclo de Trabajo</h3>
+        <div class="space-y-5">
+            <input type="date" id="referenceDate" class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none">
+            <div class="grid grid-cols-2 gap-3">
+                <input type="number" id="workDays" placeholder="Trabajo" class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none">
+                <input type="number" id="restDays" placeholder="Libre" class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none">
+            </div>
+            <input type="color" id="freeDayColorInput" onchange="updateFreeDayColor(this.value)" class="w-full h-12 bg-transparent border-none cursor-pointer">
+            <button onclick="initializeSchedule()" class="w-full bg-indigo-600 text-white font-extrabold py-4 rounded-3xl uppercase text-xs">Guardar Ciclo</button>
+        </div>
+    </div>
+
+    <!-- PANEL TURNOS -->
+    <div id="sheet-shifts" class="bottom-sheet bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+        <h3 class="text-xl font-extrabold mb-4">Gestión de Turnos</h3>
+        <div class="flex items-center justify-between mb-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl">
+            <span class="text-xs font-bold text-slate-500 uppercase">Activar Ordenar</span>
+            <input type="checkbox" id="shift-drag-check" onchange="toggleShiftDragMode(this.checked)" class="w-6 h-6 rounded text-indigo-600">
+        </div>
+        <button onclick="openImportModal()" class="w-full mb-4 text-indigo-500 font-extrabold text-[10px] uppercase py-3 border-2 border-indigo-50 dark:border-indigo-900 rounded-2xl">Importar Turnos</button>
+        <div id="shift-list" class="space-y-3 mb-6"></div>
+        <div class="p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl space-y-4">
+            <input type="hidden" id="shift-id">
+            <input type="text" id="shift-name" placeholder="Ej: 17:30 - 01:30" class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border-none text-sm">
+            <input type="color" id="shift-color" value="#4f46e5" class="w-full h-8 bg-transparent border-none cursor-pointer">
+            <button id="save-shift-btn" onclick="saveShift()" class="w-full bg-emerald-500 text-white font-extrabold py-3 rounded-xl text-xs uppercase">Añadir Turno</button>
+            <button id="cancel-edit-btn" onclick="cancelEdit()" class="w-full bg-slate-400 text-white font-bold py-2 rounded-xl text-xs hidden uppercase">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- PANEL DATOS -->
+    <div id="sheet-data" class="bottom-sheet bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+        
+        <div class="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+            <h3 class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Estado Nube</h3>
+            <p id="cloud-status-text" class="text-xs text-slate-500 dark:text-slate-400 italic">Sincronizando automáticamente...</p>
+            <button onclick="syncCloudData('LOAD')" class="mt-3 w-full py-3 bg-white dark:bg-slate-800 text-indigo-600 font-bold text-[10px] rounded-xl border border-indigo-200 dark:border-indigo-800 uppercase">Forzar Descarga</button>
+        </div>
+
+        <h3 class="text-xl font-extrabold mb-6">Opciones Locales</h3>
+        <div class="grid grid-cols-1 gap-3">
+            <button onclick="backupData()" class="bg-slate-800 text-white font-bold py-4 rounded-2xl uppercase text-xs italic">Copia de Seguridad JSON</button>
+            <button onclick="document.getElementById('restore-input').click()" class="bg-slate-100 dark:bg-slate-800 font-bold py-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 uppercase text-xs italic">Restaurar Copia Local</button>
+            <input type="file" id="restore-input" class="hidden" accept=".json" onchange="restoreData(event)">
+            <div class="grid grid-cols-2 gap-3 mt-4">
+                <button onclick="exportToCSV()" class="bg-emerald-100 text-emerald-700 font-extrabold py-4 rounded-2xl text-xs uppercase">Excel (CSV)</button>
+                <button id="pdf-export-btn" onclick="exportToPDF()" class="bg-rose-100 text-rose-700 font-extrabold py-4 rounded-2xl text-xs uppercase">PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE -->
+    <div id="shiftModal" class="fixed inset-0 z-[200] items-end sm:items-center justify-center hidden bg-slate-950/60 backdrop-blur-md p-4" onclick="closeModal(event)">
+        <div id="modal-content" class="bg-white dark:bg-slate-900 rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="p-8">
+                <div class="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
+                <h3 id="modal-date" class="text-xl font-extrabold dark:text-white mb-6 text-center capitalize italic"></h3>
+                <div class="space-y-6 max-h-[50vh] overflow-y-auto pr-1">
+                    <div id="shift-assignment-section">
+                        <h4 class="text-[10px] font-extrabold text-slate-400 uppercase mb-3 tracking-widest">Asignar Turno</h4>
+                        <div id="modal-shift-options" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+                    <div>
+                        <h4 class="text-[10px] font-extrabold text-slate-400 uppercase mb-3 tracking-widest">Nota Personal</h4>
+                        <textarea id="note-textarea" rows="3" class="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm" placeholder="Escribe aquí..."></textarea>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-3 mt-8">
+                    <button onclick="saveNote()" class="bg-indigo-600 text-white font-extrabold py-4 rounded-2xl active:scale-95 transition-transform uppercase text-xs">Guardar</button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="google-cal-btn" onclick="addToGoogleCalendar()" class="bg-blue-50 text-blue-600 dark:bg-blue-900/30 font-extrabold py-3 rounded-2xl text-[10px]">GOOGLE</button>
+                        <button onclick="removeShiftAssignment()" class="bg-rose-50 text-rose-600 dark:bg-rose-900/30 font-extrabold py-3 rounded-2xl text-[10px]">QUITAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL IMPORTAR -->
+    <div id="importShiftModal" class="fixed inset-0 z-[210] items-center justify-center hidden bg-slate-950/60 backdrop-blur-md p-6" onclick="closeImportModal(event)">
+        <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl">
+            <h3 class="text-xl font-extrabold mb-6 text-center">Importar Turnos</h3>
+            <div id="import-profile-options" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+        const dayNamesFull = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        
+        let appData = {}, activeProfile = null, selectedDateForAssignment = null, currentDisplayYear, currentDisplayMonth, selectedDayElement = null;
+
+        function openSheet(id) {
+            closeAllSheets();
+            document.getElementById(id).classList.add('open');
+            document.getElementById('overlay').classList.remove('hidden');
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.add('text-slate-400'));
+            const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => btn.getAttribute('onclick')?.includes(id));
+            if(activeBtn) { activeBtn.classList.remove('text-slate-400'); activeBtn.classList.add('text-indigo-600', 'dark:text-indigo-400'); }
+        }
+
+        function closeAllSheets() {
+            document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
+            document.getElementById('overlay').classList.add('hidden');
+            document.querySelectorAll('.nav-item').forEach(btn => { btn.classList.add('text-slate-400'); btn.classList.remove('text-indigo-600', 'dark:text-indigo-400'); });
+            const hoyBtn = document.querySelector('.nav-item[onclick="closeAllSheets()"]');
+            hoyBtn.classList.remove('text-slate-400'); hoyBtn.classList.add('text-indigo-600', 'dark:text-indigo-400');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'success' ? 'bg-emerald-600' : (type === 'error' ? 'bg-rose-600' : 'bg-indigo-600')}`;
+            toast.textContent = message; container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+            return toast;
+        }
+
+        function getTextColorForBg(hex) {
+            const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return (((r * 299) + (g * 587) + (b * 114)) / 1000) > 150 ? '#000000' : '#FFFFFF';
+        }
+
+        function createDefaultProfile() { return { id: crypto.randomUUID(), name: 'Principal', shifts: [], assignedShifts: {}, referenceDate: new Date().toISOString(), freeDayColor: '#10b981', workDays: 6, restDays: 2, notes: {} }; }
+
+        function loadFromLocalStorage() {
+            try {
+                const stored = localStorage.getItem('calendarAppData_multiuser_v2');
+                appData = stored ? JSON.parse(stored) : { profiles: [createDefaultProfile()], activeProfileId: null };
+                appData.activeProfileId = appData.activeProfileId || appData.profiles[0].id;
+                activeProfile = appData.profiles.find(p => p.id === appData.activeProfileId) || appData.profiles[0];
+            } catch (e) { appData = { profiles: [createDefaultProfile()], activeProfileId: null }; activeProfile = appData.profiles[0]; }
+        }
+
+        // ==========================================
+        // LÓGICA SYNC AUTOMÁTICA
+        // ==========================================
+        let cloudDebounceTimer;
+
+        // Sobreescribimos el guardado local para lanzar el guardado en nube
+        function saveToLocalStorage() { 
+            localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
+            
+            // Disparamos la sincronización con un pequeño retraso (debounce)
+            clearTimeout(cloudDebounceTimer);
+            
+            // Indicador visual "Esperando para guardar..."
+            const statusEl = document.getElementById('cloud-status');
+            statusEl.classList.remove('hidden');
+            
+            cloudDebounceTimer = setTimeout(() => {
+                syncCloudData('SAVE');
+            }, 2000); // 2 segundos de espera tras el último cambio
+        }
+
+        async function syncCloudData(action) {
+            if(GOOGLE_SCRIPT_URL === "PEGAR_TU_URL_DE_APPS_SCRIPT_AQUI" || GOOGLE_SCRIPT_URL === "") {
+                if(action === 'SAVE') showToast("⚠️ Configura la URL del Script", "error");
+                return;
+            }
+
+            const statusEl = document.getElementById('cloud-status');
+            const statusText = document.getElementById('cloud-status-text');
+            statusEl.classList.remove('hidden');
+            
+            try {
+                const payload = { action: action, payload: action === 'SAVE' ? appData : null };
+                
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    if(action === 'LOAD' && result.data) {
+                        appData = result.data;
+                        // Guardamos en local SIN disparar el evento de subida otra vez
+                        localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
+                        
+                        // Aseguramos perfil activo
+                        activeProfile = appData.profiles.find(p => p.id === appData.activeProfileId) || appData.profiles[0];
+                        refreshAllUI();
+                        showToast("✅ Datos Nube Cargados");
+                        statusText.textContent = "Última carga: " + new Date().toLocaleTimeString();
+                    } else {
+                        // Fue un SAVE exitoso
+                        statusText.textContent = "Guardado en nube: " + new Date().toLocaleTimeString();
+                    }
+                    setTimeout(() => statusEl.classList.add('hidden'), 2000);
+                } else {
+                    showToast("❌ Error Nube: " + result.msg, "error");
+                }
+            } catch (err) {
+                console.error(err);
+                if(action === 'LOAD') showToast("Modo Offline (Sin Nube)", "info"); // Normal al inicio si no hay internet
+                else showToast("❌ Error Conexión", "error");
+                statusEl.classList.add('hidden');
+            }
+        }
+        // ==========================================
+
+        function refreshAllUI() { renderProfileManager(); renderShiftManager(); updateConfigControls(); renderCurrentCalendar(); updateCountdown(); document.getElementById('current-user-name').textContent = activeProfile.name; }
+
+        function switchProfile(id) { 
+            if(document.getElementById('profile-drag-check').checked) return;
+            appData.activeProfileId = id; activeProfile = appData.profiles.find(p => p.id === id); 
+            // Al cambiar perfil, guardamos (y por tanto sincronizamos)
+            saveToLocalStorage(); refreshAllUI(); closeAllSheets(); showToast(`Perfil: ${activeProfile.name}`); 
+        }
+
+        function addProfile() { 
+            const input = document.getElementById('new-profile-name');
+            const name = input.value.trim(); if(!name) return;
+            const newP = createDefaultProfile(); newP.name = name;
+            appData.profiles.push(newP); input.value = ''; switchProfile(newP.id);
+        }
+
+        // --- NUEVA FUNCIÓN PARA EDITAR NOMBRE ---
+        function editProfileName(id) {
+            const p = appData.profiles.find(x => x.id === id);
+            if (!p) return;
+            
+            const newName = prompt("Nuevo nombre para el perfil:", p.name);
+            if (newName && newName.trim() !== "" && newName !== p.name) {
+                p.name = newName.trim();
+                saveToLocalStorage(); // Esto dispara la sincronización con el nuevo nombre
+                refreshAllUI();
+                showToast("Nombre actualizado");
+            }
+        }
+
+        function renderProfileManager() {
+            const list = document.getElementById('profile-list'); list.innerHTML = '';
+            appData.profiles.forEach(p => {
+                const active = p.id === activeProfile.id;
+                const el = document.createElement('div');
+                el.className = `draggable-item flex items-center justify-between p-4 rounded-2xl ${active ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 shadow-sm'}`;
+                el.dataset.id = p.id;
+                el.innerHTML = `
+                    <div class="drag-handle"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></div>
+                    <span class="flex-grow font-extrabold text-xs cursor-pointer px-3" onclick="switchProfile('${p.id}')">${p.name}</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="editProfileName('${p.id}')" class="text-indigo-500 text-[10px] font-extrabold px-2 uppercase italic border border-indigo-200 dark:border-indigo-800 rounded-lg py-1">✏️</button>
+                        <button onclick="deleteProfile('${p.id}')" class="text-rose-400 text-[10px] font-bold px-2 uppercase italic">Eliminar</button>
+                    </div>`;
+                list.appendChild(el);
+            });
+            setupTouchDrag(list, (newOrderIds) => {
+                appData.profiles = newOrderIds.map(id => appData.profiles.find(x => x.id === id));
+                saveToLocalStorage();
+            });
+        }
+
+        function deleteProfile(id) { 
+            if(appData.profiles.length <= 1) return showToast("Mínimo un perfil", "error");
+            if(!confirm("⚠️ ¿Deseas eliminar este perfil?")) return;
+            appData.profiles = appData.profiles.filter(p => p.id !== id);
+            if(appData.activeProfileId === id) switchProfile(appData.profiles[0].id);
+            else { saveToLocalStorage(); refreshAllUI(); }
+        }
+
+        function renderShiftManager() {
+            const list = document.getElementById('shift-list'); list.innerHTML = '';
+            activeProfile.shifts.forEach(s => {
+                const el = document.createElement('div');
+                el.className = 'draggable-item flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm';
+                el.dataset.id = s.id;
+                el.innerHTML = `
+                    <div class="drag-handle"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></div>
+                    <div class="flex items-center gap-3 flex-grow px-3 pointer-events-none">
+                        <span class="w-4 h-4 rounded-full" style="background-color:${s.color}"></span>
+                        <span class="text-xs font-extrabold dark:text-gray-200 uppercase">${s.name}</span>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="editShift('${s.id}')" class="text-indigo-500 text-[10px] font-extrabold uppercase italic">Editar</button>
+                        <button onclick="deleteShift('${s.id}')" class="text-rose-400 text-[10px] font-extrabold uppercase italic">Borrar</button>
+                    </div>`;
+                list.appendChild(el);
+            });
+            setupTouchDrag(list, (newOrderIds) => {
+                activeProfile.shifts = newOrderIds.map(id => activeProfile.shifts.find(x => x.id === id));
+                saveToLocalStorage();
+            });
+        }
+
+        function saveShift() {
+            const id = document.getElementById('shift-id').value;
+            const name = document.getElementById('shift-name').value.trim();
+            const color = document.getElementById('shift-color').value;
+            if(!name) return;
+            if(id) { const s = activeProfile.shifts.find(x => x.id === id); s.name = name; s.color = color; }
+            else { activeProfile.shifts.push({ id: crypto.randomUUID(), name, color }); }
+            saveToLocalStorage(); refreshAllUI(); cancelEdit();
+        }
+
+        function editShift(id) {
+            const s = activeProfile.shifts.find(x => x.id === id);
+            document.getElementById('shift-id').value = s.id;
+            document.getElementById('shift-name').value = s.name;
+            document.getElementById('shift-color').value = s.color;
+            document.getElementById('save-shift-btn').textContent = 'Guardar Cambios';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+        }
+
+        function cancelEdit() {
+            document.getElementById('shift-id').value = '';
+            document.getElementById('shift-name').value = '';
+            document.getElementById('save-shift-btn').textContent = 'Añadir Turno';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+        }
+
+        function deleteShift(id) {
+            if(!confirm("⚠️ ¿Eliminar turno?")) return;
+            activeProfile.shifts = activeProfile.shifts.filter(s => s.id !== id);
+            for(let date in activeProfile.assignedShifts) if(activeProfile.assignedShifts[date] === id) delete activeProfile.assignedShifts[date];
+            saveToLocalStorage(); refreshAllUI();
+        }
+
+        function initializeSchedule() {
+            const date = document.getElementById('referenceDate').value; if(!date) return;
+            if(!confirm("⚠️ ¿Aplicar nuevo ciclo?")) return;
+            activeProfile.referenceDate = new Date(date + "T00:00:00").toISOString();
+            activeProfile.workDays = parseInt(document.getElementById('workDays').value) || 6;
+            activeProfile.restDays = parseInt(document.getElementById('restDays').value) || 2;
+            saveToLocalStorage(); refreshAllUI(); showToast("Calendario actualizado"); closeAllSheets();
+        }
+
+        function updateConfigControls() {
+            document.getElementById('referenceDate').value = new Date(activeProfile.referenceDate).toISOString().split('T')[0];
+            document.getElementById('workDays').value = activeProfile.workDays;
+            document.getElementById('restDays').value = activeProfile.restDays;
+            document.getElementById('freeDayColorInput').value = activeProfile.freeDayColor || '#10b981';
+        }
+
+        function updateFreeDayColor(c) { activeProfile.freeDayColor = c; saveToLocalStorage(); renderCurrentCalendar(); }
+
+        function createMonthCalendar(year, month) {
+            const first = new Date(year, month, 1); let gridStart = (first.getDay() + 6) % 7; const days = new Date(year, month + 1, 0).getDate();
+            const ref = new Date(activeProfile.referenceDate); const cycle = activeProfile.workDays + activeProfile.restDays;
+            let html = `<div id="calendar-to-print" class="calendar-container"><div class="calendar-grid mb-6">${dayNames.map(n=>`<div class="text-[11px] font-extrabold uppercase text-slate-400 text-center">${n}</div>`).join('')}</div><div class="calendar-grid">`;
+            html += `<div></div>`.repeat(gridStart);
+            for (let d = 1; d <= days; d++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const diff = Math.round((Date.UTC(year, month, d) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate())) / 864e5);
+                const pos = ((diff % cycle) + cycle) % cycle;
+                let style = "", label = "", cls = "day-cell";
+                if(pos < activeProfile.restDays) { style = `style="background-color: ${activeProfile.freeDayColor}; color: ${getTextColorForBg(activeProfile.freeDayColor)}; border-color: ${activeProfile.freeDayColor}"`; label = "LIBRE"; cls += " free-day"; }
+                else { cls += " work-day"; const sid = activeProfile.assignedShifts[dateStr]; const s = activeProfile.shifts.find(x => x.id === sid);
+                    if(s) { style = `style="background-color: ${s.color}; color: ${getTextColorForBg(s.color)}; border-color: ${s.color}"`; label = s.name; cls += " assigned-shift"; }
+                    else { cls += " bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 cursor-pointer shadow-sm"; }
+                }
+                if(d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()) cls += " today";
+                html += `<div class="${cls}" ${style} onclick="handleDayClick('${dateStr}', this)"><span>${d}</span><span class="shift-name-label">${label}</span>${activeProfile.notes[dateStr] ? '<div class="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>' : ''}</div>`;
+            }
+            return html + `</div></div>`;
+        }
+
+        function handleDayClick(date, el) { if(selectedDayElement === el) { openModal(date); return; } if(selectedDayElement) selectedDayElement.classList.remove('day-selected'); selectedDayElement = el; el.classList.add('day-selected'); }
+
+        function openModal(date) {
+            selectedDateForAssignment = date; const d = new Date(date + "T00:00:00");
+            const ref = new Date(activeProfile.referenceDate); const cycle = activeProfile.workDays + activeProfile.restDays;
+            const diff = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()))/864e5);
+            const isFree = ((diff % cycle)+cycle)%cycle < activeProfile.restDays;
+            document.getElementById('modal-date').textContent = d.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'});
+            const section = document.getElementById('shift-assignment-section');
+            if(isFree) section.classList.add('hidden');
+            else { section.classList.remove('hidden'); const opt = document.getElementById('modal-shift-options'); opt.innerHTML = '';
+                activeProfile.shifts.forEach(s => { const btn = document.createElement('button'); btn.textContent = s.name; btn.style.background = s.color; btn.style.color = getTextColorForBg(s.color);
+                    btn.className = 'py-4 rounded-2xl font-extrabold text-[10px] shadow-sm uppercase';
+                    btn.onclick = () => { activeProfile.assignedShifts[date] = s.id; saveToLocalStorage(); refreshAllUI(); document.getElementById('shiftModal').classList.add('hidden'); }; opt.appendChild(btn);
+                });
+            }
+            document.getElementById('note-textarea').value = activeProfile.notes[date] || '';
+            document.getElementById('shiftModal').classList.remove('hidden', 'flex'); document.getElementById('shiftModal').classList.add('flex');
+        }
+
+        function closeModal(e) { if(e.target.id === 'shiftModal') { document.getElementById('shiftModal').classList.add('hidden'); } }
+        function saveNote() { activeProfile.notes[selectedDateForAssignment] = document.getElementById('note-textarea').value; saveToLocalStorage(); document.getElementById('shiftModal').classList.add('hidden'); renderCurrentCalendar(); }
+        function removeShiftAssignment() { delete activeProfile.assignedShifts[selectedDateForAssignment]; saveToLocalStorage(); document.getElementById('shiftModal').classList.add('hidden'); refreshAllUI(); }
+        
+        function backupData() { const blob = new Blob([JSON.stringify(appData, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Copia_Turnos.json`; a.click(); }
+        function restoreData(e) { const file = e.target.files[0]; if(!file || !confirm("⚠️ ¿Restaurar copia local?")) return; const reader = new FileReader();
+            reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if(data.profiles) { appData = data; switchProfile(data.activeProfileId); showToast("Restaurado"); saveToLocalStorage(); } } catch(err) { showToast("Archivo no válido", "error"); } }; reader.readAsText(file); e.target.value = '';
+        }
+
+        function exportToCSV() {
+            let csv = "Fecha,Día,Tipo,Turno,Nota\n"; const days = new Date(currentDisplayYear, currentDisplayMonth + 1, 0).getDate();
+            for (let d = 1; d <= days; d++) { const dateObj = new Date(currentDisplayYear, currentDisplayMonth, d); const date = dateObj.toISOString().slice(0, 10);
+                const sid = activeProfile.assignedShifts[date]; const s = activeProfile.shifts.find(x => x.id === sid);
+                csv += `${date},${dayNamesFull[dateObj.getDay()]},${s ? 'Trabajo':'Libre'},${s ? s.name : ''},"${activeProfile.notes[date] || ''}"\n`;
+            }
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' })); a.download = `Horario.csv`; a.click();
+        }
+
+        async function exportToPDF() {
+            const btn = document.getElementById('pdf-export-btn'); btn.disabled = true;
+            try { const canvas = await html2canvas(document.getElementById('calendar-to-print'), { scale: 2, backgroundColor: document.documentElement.classList.contains('dark') ? '#020617' : '#f8fafc' });
+                const pdf = new jsPDF(); pdf.text(`${activeProfile.name} - ${monthNames[currentDisplayMonth]} ${currentDisplayYear}`, 15, 15);
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 25, 190, 0); pdf.save(`Horario.pdf`);
+            } finally { btn.disabled = false; }
+        }
+
+        function addToGoogleCalendar() {
+            const sid = activeProfile.assignedShifts[selectedDateForAssignment]; if(!sid) return; const s = activeProfile.shifts.find(x => x.id === sid);
+            window.open(`https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(s.name)}&dates=${selectedDateForAssignment.replace(/-/g,'')}/${selectedDateForAssignment.replace(/-/g,'')}`, '_blank');
+        }
+
+        function setupTouchDrag(container, onDrop) {
+            let dragEl = null;
+            const getAfterElement = (y) => {
+                const els = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+                return els.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+                    else return closest;
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            };
+            container.addEventListener('touchstart', (e) => {
+                if(!container.classList.contains('drag-enabled')) return;
+                const handle = e.target.closest('.drag-handle'); if(!handle) return;
+                dragEl = handle.closest('.draggable-item'); dragEl.classList.add('dragging');
+                if (window.navigator.vibrate) window.navigator.vibrate(20);
+            }, { passive: false });
+            container.addEventListener('touchmove', (e) => {
+                if(!dragEl) return; e.preventDefault(); 
+                const y = e.touches[0].clientY; const afterEl = getAfterElement(y);
+                if (afterEl) container.insertBefore(dragEl, afterEl); else container.appendChild(dragEl);
+            }, { passive: false });
+            container.addEventListener('touchend', () => {
+                if(!dragEl) return; dragEl.classList.remove('dragging');
+                const currentOrderIds = [...container.querySelectorAll('.draggable-item')].map(el => el.dataset.id);
+                dragEl = null; onDrop(currentOrderIds);
+            });
+        }
+
+        function toggleProfileDragMode(en) { document.getElementById('profile-list').classList.toggle('drag-enabled', en); showToast(en ? "Usa las ≡ para mover" : "Orden guardado", "info"); }
+        function toggleShiftDragMode(en) { document.getElementById('shift-list').classList.toggle('drag-enabled', en); showToast(en ? "Usa las ≡ para mover" : "Orden guardado", "info"); }
+
+        function openImportModal() {
+            const modal = document.getElementById('importShiftModal'); const opt = document.getElementById('import-profile-options'); opt.innerHTML = '';
+            const others = appData.profiles.filter(p => p.id !== activeProfile.id);
+            if(others.length === 0) opt.innerHTML = '<p class="text-xs text-center text-slate-400 italic">No hay otros perfiles.</p>';
+            else others.forEach(p => {
+                const btn = document.createElement('button'); btn.textContent = `Desde "${p.name}"`; btn.className = 'w-full py-4 rounded-2xl bg-slate-50 dark:bg-slate-800 font-extrabold text-xs dark:text-white uppercase';
+                btn.onclick = () => { p.shifts.forEach(s => activeProfile.shifts.push({...s, id: crypto.randomUUID()})); saveToLocalStorage(); refreshAllUI(); document.getElementById('importShiftModal').classList.add('hidden'); }; opt.appendChild(btn);
+            });
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+        function closeImportModal(e) { if(e.target.id === 'importShiftModal') { document.getElementById('importShiftModal').classList.add('hidden'); } }
+
+        function navigateMonth(dir) { currentDisplayMonth += dir; if(currentDisplayMonth<0){currentDisplayMonth=11;currentDisplayYear--} else if(currentDisplayMonth>11){currentDisplayMonth=0;currentDisplayYear++} renderCurrentCalendar(); }
+        function jumpToDate() { currentDisplayMonth = parseInt(document.getElementById('displayMonth').value); currentDisplayYear = parseInt(document.getElementById('displayYear').value); renderCurrentCalendar(); }
+        function renderCurrentCalendar() { document.getElementById('calendar-wrapper').innerHTML = createMonthCalendar(currentDisplayYear, currentDisplayMonth); document.getElementById('displayMonth').value = currentDisplayMonth; document.getElementById('displayYear').value = currentDisplayYear; }
+        
+        function updateCountdown() {
+            const ref = new Date(activeProfile.referenceDate); const today = new Date(); today.setHours(0,0,0,0); const cycle = activeProfile.workDays + activeProfile.restDays;
+            for(let i=0; i<90; i++) { const d = new Date(today); d.setDate(today.getDate()+i); const diff = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()))/864e5);
+                if(((diff % cycle)+cycle)%cycle < activeProfile.restDays) { document.getElementById('countdown-container').textContent = i===0 ? 'Hoy descansas' : (i===1 ? 'Mañana libre' : `${i} días para descansar`); break; }
+            }
+        }
+
+        window.onload = async () => {
+            const today = new Date(); currentDisplayYear = today.getFullYear(); currentDisplayMonth = today.getMonth();
+            monthNames.forEach((m, i) => document.getElementById('displayMonth').add(new Option(m, i)));
+            for(let i=-5; i<=5; i++) document.getElementById('displayYear').add(new Option(currentDisplayYear+i, currentDisplayYear+i));
+            loadFromLocalStorage(); 
+            refreshAllUI();
+            
+            // INTENTAR CARGAR NUBE AL INICIAR
+            await syncCloudData('LOAD');
+        };
+    </script>
+</body>
+</html>
