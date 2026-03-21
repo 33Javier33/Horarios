@@ -74,8 +74,25 @@
         .brand-footer { font-size: 10px; font-weight: 800; letter-spacing: 0.4em; text-transform: uppercase; color: #94a3b8; }
         .toast { padding: 12px 24px; border-radius: 16px; color: white; font-weight: 700; box-shadow: 0 10px 20px rgba(0,0,0,0.2); animation: toast-in 0.3s ease-out; }
         @keyframes toast-in { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        /* Sync Indicator */
         #cloud-status { position: fixed; top: 10px; right: 10px; z-index: 50; transition: opacity 0.3s;}
+        /* Vacation day styles */
+        .vacation-15-day { background: linear-gradient(135deg, #f59e0b, #fbbf24) !important; color: #78350f !important; }
+        .vacation-6-day { background: linear-gradient(135deg, #8b5cf6, #a78bfa) !important; color: #ede9fe !important; }
+        /* Vacation calendar mini grid */
+        .vac-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .vac-day {
+            position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 10px; font-weight: 700; aspect-ratio: 1/1;
+            font-size: clamp(0.65rem, 2.2vw, 0.85rem); overflow: hidden;
+        }
+        .vac-day-label { font-size: 0.5rem; font-weight: 800; text-align: center; line-height: 1; margin-top: 2px; }
+        .vac-day.is-v15 { background: linear-gradient(135deg,#f59e0b,#fbbf24); color: #78350f; }
+        .vac-day.is-v6  { background: linear-gradient(135deg,#8b5cf6,#a78bfa); color: #ede9fe; }
+        .vac-day.is-excluded { background: #f1f5f9; color: #94a3b8; }
+        .dark .vac-day.is-excluded { background: #1e293b; color: #475569; }
+        .vac-day.is-holiday-dot::after { content:''; position:absolute; top:3px; right:3px; width:5px; height:5px; border-radius:50%; background:#f87171; }
+        .vac-day.is-today-vac { outline: 2px solid #4f46e5; outline-offset: -2px; }
+        .vac-day.out-of-range { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -135,9 +152,9 @@
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span class="text-[9px] font-bold mt-1 uppercase">Turnos</span>
         </button>
-        <button onclick="openSheet('sheet-data')" class="nav-item flex flex-col items-center text-slate-400">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2a4 4 0 10-8 0v2m8 0V4a2 2 0 10-4 0v13m4 0H5m11 3a2 2 0 100-4 2 2 0 000 4z"/></svg>
-            <span class="text-[9px] font-bold mt-1 uppercase">Nube</span>
+        <button onclick="openSheet('sheet-vacaciones')" class="nav-item flex flex-col items-center text-slate-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+            <span class="text-[9px] font-bold mt-1 uppercase">Vacac.</span>
         </button>
     </nav>
 
@@ -170,6 +187,104 @@
             </div>
             <input type="color" id="freeDayColorInput" onchange="updateFreeDayColor(this.value)" class="w-full h-12 bg-transparent border-none cursor-pointer">
             <button onclick="initializeSchedule()" class="w-full bg-indigo-600 text-white font-extrabold py-4 rounded-3xl uppercase text-xs">Guardar Ciclo</button>
+
+            <!-- ══════ SECCIÓN VACACIONES ══════ -->
+            <div class="mt-2 pt-5 border-t border-slate-100 dark:border-slate-800">
+                <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-4">🏖️ Calcular Vacaciones</h4>
+
+                <!-- Tipo de vacaciones -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button id="vac-btn-15" onclick="selectVacationType('15')"
+                        class="py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 transition-all">
+                        📅 15 Días Hábiles
+                    </button>
+                    <button id="vac-btn-6" onclick="selectVacationType('6')"
+                        class="py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 transition-all">
+                        ➕ 6 Días Adicionales
+                    </button>
+                </div>
+
+                <!-- Descripción del tipo -->
+                <p id="vac-type-desc" class="text-[10px] text-slate-400 italic mb-4 text-center">
+                    15 días hábiles: no cuentan sábados, domingos ni feriados chilenos. Los días libres del ciclo SÍ se consumen como vacaciones.
+                </p>
+
+                <!-- Fecha de inicio -->
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha de Inicio</label>
+                <input type="date" id="vacStartDate" class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none mb-4">
+
+                <button onclick="calcularVacaciones()" class="w-full bg-amber-500 text-white font-extrabold py-4 rounded-3xl uppercase text-xs">
+                    Calcular Fecha de Regreso
+                </button>
+
+                <!-- Resultado -->
+                <div id="vac-result" class="hidden mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-800 text-center">
+                    <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Fecha de Regreso</p>
+                    <p id="vac-return-date" class="text-xl font-extrabold text-amber-700 dark:text-amber-300"></p>
+                    <p id="vac-summary" class="text-[10px] text-slate-500 mt-1"></p>
+                    <button onclick="openVacCalendar()" class="mt-3 w-full py-3 bg-amber-500 text-white font-extrabold text-[11px] uppercase rounded-2xl flex items-center justify-center gap-2">
+                        🗓️ Ver Calendario de Vacaciones
+                    </button>
+                </div>
+
+                <!-- Leyenda colores -->
+                <div class="mt-4 flex flex-wrap gap-2 justify-center">
+                    <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                        <span class="w-3 h-3 rounded-full inline-block" style="background:linear-gradient(135deg,#f59e0b,#fbbf24)"></span>15 Hábiles
+                    </span>
+                    <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500">
+                        <span class="w-3 h-3 rounded-full inline-block" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa)"></span>6 Adicionales
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CALENDARIO VACACIONES -->
+    <div id="vacCalendarModal" class="fixed inset-0 z-[220] flex items-end sm:items-center justify-center hidden bg-slate-950/70 backdrop-blur-md p-3" onclick="closeVacCalendar(event)">
+        <div class="bg-white dark:bg-slate-900 rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden" style="max-height:92vh;overflow-y:auto;">
+            <div class="p-6">
+                <!-- Handle + Header -->
+                <div class="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-5 sm:hidden"></div>
+                <div class="flex items-center justify-between mb-1">
+                    <h3 class="text-lg font-extrabold dark:text-white">🏖️ Calendario de Vacaciones</h3>
+                    <button onclick="document.getElementById('vacCalendarModal').classList.add('hidden')" class="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-bold text-sm">✕</button>
+                </div>
+                <p id="vac-cal-subtitle" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5"></p>
+
+                <!-- Leyenda -->
+                <div class="flex flex-wrap gap-3 mb-5">
+                    <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                        <span class="w-3 h-3 rounded-full" style="background:linear-gradient(135deg,#f59e0b,#fbbf24)"></span>15 Días Hábiles
+                    </span>
+                    <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                        <span class="w-3 h-3 rounded-full" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa)"></span>6 Días Adicionales
+                    </span>
+                    <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                        <span class="w-3 h-3 rounded-full bg-slate-300"></span>Excluido
+                    </span>
+                    <span class="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                        <span class="w-3 h-3 rounded-full bg-red-400"></span>Feriado
+                    </span>
+                </div>
+
+                <!-- Navegación del calendario vacaciones -->
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="navVacMonth(-1)" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <span id="vac-cal-month-label" class="text-sm font-extrabold dark:text-white uppercase tracking-wide"></span>
+                    <button onclick="navVacMonth(1)" class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+
+                <!-- Grid del calendario de vacaciones -->
+                <div id="vac-calendar-grid" class="mb-4"></div>
+
+                <!-- Resumen de días -->
+                <div id="vac-cal-summary" class="grid grid-cols-2 gap-3 mt-2"></div>
+            </div>
         </div>
     </div>
 
@@ -214,6 +329,40 @@
         </div>
     </div>
 
+    <!-- PANEL VACACIONES -->
+    <div id="sheet-vacaciones" class="bottom-sheet bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-extrabold">🏖️ Vacaciones</h3>
+            <button onclick="openSheet('sheet-data')" class="flex items-center gap-1 text-[9px] font-extrabold text-indigo-500 uppercase border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 rounded-xl">☁️ Nube</button>
+        </div>
+        <div class="mb-4 px-4 py-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            <span id="vac-sheet-profile-name" class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider"></span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <button id="vac-sheet-btn-15" onclick="selectVacationTypeSheet('15')" class="py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 transition-all">📅 15 Días Hábiles</button>
+            <button id="vac-sheet-btn-6" onclick="selectVacationTypeSheet('6')" class="py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 transition-all">➕ 6 Días Adicionales</button>
+        </div>
+        <p id="vac-sheet-desc" class="text-[10px] text-slate-400 italic mb-4 text-center">15 días hábiles: no cuentan sábados, domingos ni feriados chilenos. Días libres del ciclo SÍ se consumen.</p>
+        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fecha de Inicio</label>
+        <input type="date" id="vac-sheet-start" class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none mb-4">
+        <button onclick="calcularYGuardarVacaciones()" class="w-full bg-amber-500 text-white font-extrabold py-4 rounded-3xl uppercase text-xs mb-4">Calcular y Guardar en Nube ☁️</button>
+        <div id="vac-sheet-result" class="hidden p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-800 text-center mb-6">
+            <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Fecha de Regreso</p>
+            <p id="vac-sheet-return-date" class="text-xl font-extrabold text-amber-700 dark:text-amber-300"></p>
+            <p id="vac-sheet-summary" class="text-[10px] text-slate-500 mt-1"></p>
+        </div>
+        <div class="mt-2">
+            <h4 class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Historial guardado</h4>
+            <div id="vac-history-list" class="space-y-2"></div>
+        </div>
+        <div class="mt-5 flex flex-wrap gap-3 justify-center">
+            <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500"><span class="w-3 h-3 rounded-full inline-block" style="background:linear-gradient(135deg,#f59e0b,#fbbf24)"></span>15 Hábiles</span>
+            <span class="flex items-center gap-1 text-[10px] font-bold text-slate-500"><span class="w-3 h-3 rounded-full inline-block" style="background:linear-gradient(135deg,#8b5cf6,#a78bfa)"></span>6 Adicionales</span>
+        </div>
+    </div>
+
     <!-- MODAL DETALLE -->
     <div id="shiftModal" class="fixed inset-0 z-[200] items-end sm:items-center justify-center hidden bg-slate-950/60 backdrop-blur-md p-4" onclick="closeModal(event)">
         <div id="modal-content" class="bg-white dark:bg-slate-900 rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden">
@@ -254,8 +403,133 @@
         const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
         const dayNamesFull = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-        
+
+        // ══════════════════════════════════════════════════════
+        // FERIADOS CHILE — se calculan dinámicamente por año
+        // ══════════════════════════════════════════════════════
+        function getChileanHolidays(year) {
+            // Cálculo de Semana Santa (algoritmo de Meeus/Jones/Butcher)
+            const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3), h = (19*a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2*e + 2*i - h - k) % 7;
+            const m = Math.floor((a + 11*h + 22*l) / 451);
+            const easterMonth = Math.floor((h + l - 7*m + 114) / 31) - 1; // 0-indexed
+            const easterDay = ((h + l - 7*m + 114) % 31) + 1;
+            const easter = new Date(year, easterMonth, easterDay);
+
+            const goodFriday = new Date(easter); goodFriday.setDate(easter.getDate() - 2);
+            const holySaturday = new Date(easter); holySaturday.setDate(easter.getDate() - 1);
+
+            const holidays = new Set();
+            const addHoliday = (d) => holidays.add(d.toISOString().slice(0, 10));
+
+            // Feriados fijos
+            addHoliday(new Date(year, 0, 1));   // Año Nuevo
+            addHoliday(new Date(year, 4, 1));   // Día del Trabajo
+            addHoliday(new Date(year, 4, 21));  // Glorias Navales
+            addHoliday(new Date(year, 5, 7));   // San Pedro y San Pablo (aproximado — 29 jun se traslada a lunes cercano si aplica)
+            addHoliday(new Date(year, 6, 16));  // Día de la Virgen del Carmen
+            addHoliday(new Date(year, 7, 15));  // Asunción de la Virgen
+            addHoliday(new Date(year, 8, 18));  // Independencia
+            addHoliday(new Date(year, 8, 19));  // Glorias del Ejército
+            addHoliday(new Date(year, 9, 12));  // Encuentro de Dos Mundos
+            addHoliday(new Date(year, 9, 31));  // Día de las Iglesias Evangélicas
+            addHoliday(new Date(year, 10, 1));  // Día de Todos los Santos
+            addHoliday(new Date(year, 11, 8));  // Inmaculada Concepción
+            addHoliday(new Date(year, 11, 25)); // Navidad
+            // Semana Santa
+            addHoliday(goodFriday);
+            addHoliday(holySaturday);
+
+            return holidays;
+        }
+
+        // Variable para tipo de vacaciones seleccionado
+        let vacationType = '15';
+
+        function selectVacationType(type) {
+            vacationType = type;
+            const btn15 = document.getElementById('vac-btn-15');
+            const btn6  = document.getElementById('vac-btn-6');
+            const desc  = document.getElementById('vac-type-desc');
+
+            if (type === '15') {
+                btn15.className = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 transition-all';
+                btn6.className  = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 transition-all';
+                desc.textContent = '15 días hábiles: no cuentan sábados, domingos ni feriados chilenos. Los días libres del ciclo SÍ se consumen como vacaciones.';
+            } else {
+                btn6.className  = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-violet-400 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 transition-all';
+                btn15.className = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 transition-all';
+                desc.textContent = '6 días adicionales corridos: cuenta absolutamente todo, feriados, sábados y domingos incluidos.';
+            }
+            document.getElementById('vac-result').classList.add('hidden');
+        }
+
+        function calcularVacaciones() {
+            const startStr = document.getElementById('vacStartDate').value;
+            if (!startStr) { showToast('Selecciona una fecha de inicio', 'error'); return; }
+
+            const startDate = new Date(startStr + 'T00:00:00');
+            const ref = new Date(activeProfile.referenceDate);
+            const cycle = activeProfile.workDays + activeProfile.restDays;
+
+            // Vacaciones marcadas ya en el perfil (para no contar días de vacaciones anteriores como libres)
+            const vacDays = activeProfile.vacationDays || {};
+
+            let counted = 0;
+            let current = new Date(startDate);
+            const target = vacationType === '15' ? 15 : 6;
+            const vacDates = [];
+
+            while (counted < target) {
+                const dateStr = current.toISOString().slice(0, 10);
+                const dow = current.getDay(); // 0=Dom, 6=Sáb
+                const holidays = getChileanHolidays(current.getFullYear());
+
+                if (vacationType === '15') {
+                    // Saltan: sábado (6), domingo (0) y feriados chilenos.
+                    // Los días libres del ciclo SÍ cuentan como día de vacaciones.
+                    if (dow === 0 || dow === 6) { current.setDate(current.getDate() + 1); continue; }
+                    if (holidays.has(dateStr)) { current.setDate(current.getDate() + 1); continue; }
+                }
+                // 6 días adicionales: corrido puro, cuenta TODO sin excepción.
+
+                vacDates.push(dateStr);
+                counted++;
+                current.setDate(current.getDate() + 1);
+            }
+
+            // Guardar días de vacaciones en el perfil para mostrarlos en el calendario
+            if (!activeProfile.vacationDays) activeProfile.vacationDays = {};
+            // Limpiar vacaciones anteriores del mismo tipo antes de asignar
+            const typeKey = vacationType === '15' ? 'v15' : 'v6';
+            // Limpiar todas las vacaciones de ese tipo
+            for (const k in activeProfile.vacationDays) {
+                if (activeProfile.vacationDays[k] === typeKey) delete activeProfile.vacationDays[k];
+            }
+            vacDates.forEach(d => { activeProfile.vacationDays[d] = typeKey; });
+            saveToLocalStorage();
+            renderCurrentCalendar();
+
+            // Mostrar resultado
+            const lastDay = new Date(vacDates[vacDates.length - 1] + 'T00:00:00');
+            const returnDay = new Date(lastDay); returnDay.setDate(lastDay.getDate() + 1);
+
+            const resultEl = document.getElementById('vac-result');
+            document.getElementById('vac-return-date').textContent = returnDay.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('vac-summary').textContent = `${target} días desde el ${startDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}`;
+            resultEl.classList.remove('hidden');
+        }
+
+        // ══════════════════════════════════════════════════════
+        // DATOS Y PERSISTENCIA
+        // ══════════════════════════════════════════════════════
+
         let appData = {}, activeProfile = null, selectedDateForAssignment = null, currentDisplayYear, currentDisplayMonth, selectedDayElement = null;
+
+        // CLAVE LOCAL para el perfil activo por dispositivo (NO sube a la nube)
+        const LOCAL_ACTIVE_PROFILE_KEY = 'localActiveProfileId_v1';
 
         function openSheet(id) {
             closeAllSheets();
@@ -288,20 +562,32 @@
             return (((r * 299) + (g * 587) + (b * 114)) / 1000) > 150 ? '#000000' : '#FFFFFF';
         }
 
-        function createDefaultProfile() { return { id: crypto.randomUUID(), name: 'Principal', shifts: [], assignedShifts: {}, referenceDate: new Date().toISOString(), freeDayColor: '#10b981', workDays: 6, restDays: 2, notes: {} }; }
+        function createDefaultProfile() { return { id: crypto.randomUUID(), name: 'Principal', shifts: [], assignedShifts: {}, referenceDate: new Date().toISOString(), freeDayColor: '#10b981', workDays: 6, restDays: 2, notes: {}, vacationDays: {} }; }
 
         function loadFromLocalStorage() {
             try {
                 const stored = localStorage.getItem('calendarAppData_multiuser_v2');
                 appData = stored ? JSON.parse(stored) : { profiles: [createDefaultProfile()], activeProfileId: null };
-                appData.activeProfileId = appData.activeProfileId || appData.profiles[0].id;
-                activeProfile = appData.profiles.find(p => p.id === appData.activeProfileId) || appData.profiles[0];
-            } catch (e) { appData = { profiles: [createDefaultProfile()], activeProfileId: null }; activeProfile = appData.profiles[0]; }
+
+                // ✅ FIX: El perfil activo se determina POR DISPOSITIVO (localStorage local),
+                //         NO desde los datos de la nube (que son compartidos entre todos).
+                const localActiveId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY);
+                const resolvedId = localActiveId || appData.profiles[0].id;
+                activeProfile = appData.profiles.find(p => p.id === resolvedId) || appData.profiles[0];
+
+                // Aseguramos que todos los perfiles tengan vacationDays
+                appData.profiles.forEach(p => { if (!p.vacationDays) p.vacationDays = {}; });
+            } catch (e) {
+                appData = { profiles: [createDefaultProfile()], activeProfileId: null };
+                activeProfile = appData.profiles[0];
+            }
         }
 
         let cloudDebounceTimer;
         function saveToLocalStorage() { 
             localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
+            // Guardar el perfil activo de ESTE dispositivo por separado
+            localStorage.setItem(LOCAL_ACTIVE_PROFILE_KEY, activeProfile.id);
             
             clearTimeout(cloudDebounceTimer);
             const statusEl = document.getElementById('cloud-status');
@@ -335,7 +621,16 @@
                     if(action === 'LOAD' && result.data) {
                         appData = result.data;
                         localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
-                        activeProfile = appData.profiles.find(p => p.id === appData.activeProfileId) || appData.profiles[0];
+
+                        // ✅ FIX: Al cargar de la nube, respetar el perfil activo LOCAL de este dispositivo
+                        const localActiveId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY);
+                        activeProfile = (localActiveId && appData.profiles.find(p => p.id === localActiveId))
+                            ? appData.profiles.find(p => p.id === localActiveId)
+                            : appData.profiles[0];
+
+                        // Aseguramos vacationDays en todos los perfiles
+                        appData.profiles.forEach(p => { if (!p.vacationDays) p.vacationDays = {}; });
+
                         refreshAllUI();
                         showToast("✅ Datos Nube Cargados");
                         statusText.textContent = "Última carga: " + new Date().toLocaleTimeString();
@@ -354,11 +649,144 @@
             }
         }
 
-        function refreshAllUI() { renderProfileManager(); renderShiftManager(); updateConfigControls(); renderCurrentCalendar(); updateCountdown(); document.getElementById('current-user-name').textContent = activeProfile.name; }
+        function refreshAllUI() {
+            renderProfileManager(); renderShiftManager(); updateConfigControls(); renderCurrentCalendar(); updateCountdown();
+            document.getElementById('current-user-name').textContent = activeProfile.name;
+            // Actualizar panel vacaciones si está visible
+            const vacSheetName = document.getElementById('vac-sheet-profile-name');
+            if (vacSheetName) vacSheetName.textContent = activeProfile.name;
+            renderVacHistory();
+        }
+
+        // ══════════════════════════════════════════════════════
+        // VACACIONES — Panel pestaña
+        // ══════════════════════════════════════════════════════
+        let vacationTypeSheet = '15';
+
+        function selectVacationTypeSheet(type) {
+            vacationTypeSheet = type;
+            const btn15 = document.getElementById('vac-sheet-btn-15');
+            const btn6  = document.getElementById('vac-sheet-btn-6');
+            const desc  = document.getElementById('vac-sheet-desc');
+            if (type === '15') {
+                btn15.className = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 transition-all';
+                btn6.className  = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 transition-all';
+                desc.textContent = '15 días hábiles: no cuentan sábados, domingos ni feriados chilenos. Días libres del ciclo SÍ se consumen.';
+            } else {
+                btn6.className  = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-violet-400 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 transition-all';
+                btn15.className = 'py-3 rounded-2xl font-extrabold text-[11px] uppercase border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 transition-all';
+                desc.textContent = '6 días adicionales corridos: cuenta absolutamente todo, feriados, sábados y domingos incluidos.';
+            }
+            document.getElementById('vac-sheet-result').classList.add('hidden');
+        }
+
+        function calcularYGuardarVacaciones() {
+            const startStr = document.getElementById('vac-sheet-start').value;
+            if (!startStr) { showToast('Selecciona una fecha de inicio', 'error'); return; }
+
+            const startDate = new Date(startStr + 'T00:00:00');
+            const ref = new Date(activeProfile.referenceDate);
+            const cycle = activeProfile.workDays + activeProfile.restDays;
+            const target = vacationTypeSheet === '15' ? 15 : 6;
+            const typeKey = vacationTypeSheet === '15' ? 'v15' : 'v6';
+            const typeName = vacationTypeSheet === '15' ? '15 Días Hábiles' : '6 Días Adicionales';
+
+            let counted = 0;
+            let current = new Date(startDate);
+            const vacDates = [];
+
+            while (counted < target) {
+                const dateStr = current.toISOString().slice(0, 10);
+                const dow = current.getDay();
+                const holidays = getChileanHolidays(current.getFullYear());
+
+                if (vacationTypeSheet === '15') {
+                    if (dow === 0 || dow === 6) { current.setDate(current.getDate() + 1); continue; }
+                    if (holidays.has(dateStr)) { current.setDate(current.getDate() + 1); continue; }
+                }
+                // '6': corrido puro, sin exclusiones
+
+                vacDates.push(dateStr);
+                counted++;
+                current.setDate(current.getDate() + 1);
+            }
+
+            const lastDay = new Date(vacDates[vacDates.length - 1] + 'T00:00:00');
+            const returnDay = new Date(lastDay); returnDay.setDate(lastDay.getDate() + 1);
+            const returnStr = returnDay.toISOString().slice(0, 10);
+
+            // Guardar en el perfil: vacationDays (días individuales para el calendario)
+            if (!activeProfile.vacationDays) activeProfile.vacationDays = {};
+            // Limpiar vacaciones previas del mismo tipo
+            for (const k in activeProfile.vacationDays) {
+                if (activeProfile.vacationDays[k] === typeKey) delete activeProfile.vacationDays[k];
+            }
+            vacDates.forEach(d => { activeProfile.vacationDays[d] = typeKey; });
+
+            // Guardar registro en historial (vacationRecords)
+            if (!activeProfile.vacationRecords) activeProfile.vacationRecords = [];
+            // Reemplazar registro del mismo tipo si existe
+            activeProfile.vacationRecords = activeProfile.vacationRecords.filter(r => r.type !== typeKey);
+            activeProfile.vacationRecords.push({
+                type: typeKey,
+                typeName: typeName,
+                startDate: startStr,
+                returnDate: returnStr,
+                days: vacDates
+            });
+
+            saveToLocalStorage();
+            renderCurrentCalendar();
+            renderVacHistory();
+
+            // Mostrar resultado
+            document.getElementById('vac-sheet-return-date').textContent = returnDay.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('vac-sheet-summary').textContent = `${target} días desde el ${startDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}`;
+            document.getElementById('vac-sheet-result').classList.remove('hidden');
+
+            showToast('✅ Vacaciones guardadas en nube', 'success');
+        }
+
+        function renderVacHistory() {
+            const list = document.getElementById('vac-history-list');
+            if (!list) return;
+            const records = activeProfile.vacationRecords || [];
+            if (records.length === 0) {
+                list.innerHTML = '<p class="text-[10px] text-center text-slate-400 italic py-4">Sin vacaciones registradas.</p>';
+                return;
+            }
+            list.innerHTML = records.map(r => {
+                const color = r.type === 'v15' ? 'amber' : 'violet';
+                const returnDate = new Date(r.returnDate + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+                const startDate = new Date(r.startDate + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+                return `<div class="flex items-center justify-between p-4 rounded-2xl bg-${color}-50 dark:bg-${color}-900/20 border border-${color}-200 dark:border-${color}-800">
+                    <div>
+                        <p class="text-[10px] font-extrabold text-${color}-600 uppercase">${r.typeName}</p>
+                        <p class="text-[10px] text-slate-500 mt-0.5">Inicio: ${startDate}</p>
+                        <p class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Regreso: ${returnDate}</p>
+                    </div>
+                    <button onclick="eliminarVacaciones('${r.type}')" class="text-rose-400 text-[10px] font-extrabold uppercase italic ml-3">Borrar</button>
+                </div>`;
+            }).join('');
+        }
+
+        function eliminarVacaciones(typeKey) {
+            if (!confirm('⚠️ ¿Eliminar este período de vacaciones?')) return;
+            activeProfile.vacationRecords = (activeProfile.vacationRecords || []).filter(r => r.type !== typeKey);
+            for (const k in activeProfile.vacationDays) {
+                if (activeProfile.vacationDays[k] === typeKey) delete activeProfile.vacationDays[k];
+            }
+            saveToLocalStorage();
+            renderCurrentCalendar();
+            renderVacHistory();
+            showToast('Vacaciones eliminadas');
+        }
 
         function switchProfile(id) { 
             if(document.getElementById('profile-drag-check').checked) return;
-            appData.activeProfileId = id; activeProfile = appData.profiles.find(p => p.id === id); 
+            activeProfile = appData.profiles.find(p => p.id === id);
+            // ✅ FIX: Guardar la preferencia de perfil solo en este dispositivo
+            localStorage.setItem(LOCAL_ACTIVE_PROFILE_KEY, id);
             saveToLocalStorage(); refreshAllUI(); closeAllSheets(); showToast(`Perfil: ${activeProfile.name}`); 
         }
 
@@ -407,7 +835,7 @@
             if(appData.profiles.length <= 1) return showToast("Mínimo un perfil", "error");
             if(!confirm("⚠️ ¿Deseas eliminar este perfil?")) return;
             appData.profiles = appData.profiles.filter(p => p.id !== id);
-            if(appData.activeProfileId === id) switchProfile(appData.profiles[0].id);
+            if(activeProfile.id === id) switchProfile(appData.profiles[0].id);
             else { saveToLocalStorage(); refreshAllUI(); }
         }
 
@@ -489,6 +917,9 @@
         function createMonthCalendar(year, month) {
             const first = new Date(year, month, 1); let gridStart = (first.getDay() + 6) % 7; const days = new Date(year, month + 1, 0).getDate();
             const ref = new Date(activeProfile.referenceDate); const cycle = activeProfile.workDays + activeProfile.restDays;
+            const vacDays = activeProfile.vacationDays || {};
+            const holidays = getChileanHolidays(year);
+
             let html = `<div id="calendar-to-print" class="calendar-container"><div class="calendar-grid mb-6">${dayNames.map(n=>`<div class="text-[11px] font-extrabold uppercase text-slate-400 text-center">${n}</div>`).join('')}</div><div class="calendar-grid">`;
             html += `<div></div>`.repeat(gridStart);
             for (let d = 1; d <= days; d++) {
@@ -496,13 +927,29 @@
                 const diff = Math.round((Date.UTC(year, month, d) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate())) / 864e5);
                 const pos = ((diff % cycle) + cycle) % cycle;
                 let style = "", label = "", cls = "day-cell";
-                if(pos < activeProfile.restDays) { style = `style="background-color: ${activeProfile.freeDayColor}; color: ${getTextColorForBg(activeProfile.freeDayColor)}; border-color: ${activeProfile.freeDayColor}"`; label = "LIBRE"; cls += " free-day"; }
-                else { cls += " work-day"; const sid = activeProfile.assignedShifts[dateStr]; const s = activeProfile.shifts.find(x => x.id === sid);
+
+                // Prioridad: vacaciones > libre > asignado > normal
+                if (vacDays[dateStr] === 'v15') {
+                    style = `style="background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#78350f;border-color:#f59e0b"`;
+                    label = "VACAC."; cls += " assigned-shift";
+                } else if (vacDays[dateStr] === 'v6') {
+                    style = `style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);color:#ede9fe;border-color:#8b5cf6"`;
+                    label = "+6 DÍAS"; cls += " assigned-shift";
+                } else if(pos < activeProfile.restDays) {
+                    style = `style="background-color: ${activeProfile.freeDayColor}; color: ${getTextColorForBg(activeProfile.freeDayColor)}; border-color: ${activeProfile.freeDayColor}"`;
+                    label = "LIBRE"; cls += " free-day";
+                } else {
+                    cls += " work-day"; const sid = activeProfile.assignedShifts[dateStr]; const s = activeProfile.shifts.find(x => x.id === sid);
                     if(s) { style = `style="background-color: ${s.color}; color: ${getTextColorForBg(s.color)}; border-color: ${s.color}"`; label = s.name; cls += " assigned-shift"; }
                     else { cls += " bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 cursor-pointer shadow-sm"; }
                 }
                 if(d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()) cls += " today";
-                html += `<div class="${cls}" ${style} onclick="handleDayClick('${dateStr}', this)"><span>${d}</span><span class="shift-name-label">${label}</span>${activeProfile.notes[dateStr] ? '<div class="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>' : ''}</div>`;
+
+                // Indicador de feriado
+                const isHoliday = holidays.has(dateStr);
+                const holidayDot = isHoliday ? '<div class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_4px_#f87171]"></div>' : '';
+
+                html += `<div class="${cls}" ${style} onclick="handleDayClick('${dateStr}', this)"><span>${d}</span><span class="shift-name-label">${label}</span>${activeProfile.notes[dateStr] ? '<div class="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>' : ''}${holidayDot}</div>`;
             }
             return html + `</div></div>`;
         }
@@ -533,7 +980,7 @@
         
         function backupData() { const blob = new Blob([JSON.stringify(appData, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Copia_Turnos.json`; a.click(); }
         function restoreData(e) { const file = e.target.files[0]; if(!file || !confirm("⚠️ ¿Restaurar copia local?")) return; const reader = new FileReader();
-            reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if(data.profiles) { appData = data; switchProfile(data.activeProfileId); showToast("Restaurado"); saveToLocalStorage(); } } catch(err) { showToast("Archivo no válido", "error"); } }; reader.readAsText(file); e.target.value = '';
+            reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if(data.profiles) { appData = data; const localId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY); activeProfile = (localId && appData.profiles.find(p => p.id === localId)) ? appData.profiles.find(p => p.id === localId) : appData.profiles[0]; refreshAllUI(); showToast("Restaurado"); saveToLocalStorage(); } } catch(err) { showToast("Archivo no válido", "error"); } }; reader.readAsText(file); e.target.value = '';
         }
 
         function exportToCSV() {
