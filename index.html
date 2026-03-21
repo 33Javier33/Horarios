@@ -308,9 +308,14 @@
                     <p class="text-[9px] font-extrabold text-amber-900 uppercase tracking-widest mb-1">📅 Fecha de Regreso</p>
                     <p id="vac-sheet-return-date" class="text-lg font-extrabold text-white capitalize leading-tight"></p>
                 </div>
-                <div class="bg-amber-50 dark:bg-amber-900/30 p-3 text-center">
+                <div class="bg-amber-50 dark:bg-amber-900/30 p-3 text-center space-y-2">
                     <p id="vac-sheet-summary" class="text-[10px] text-amber-700 dark:text-amber-300 font-bold"></p>
-                    <p class="text-[9px] text-slate-400 mt-1">Guardado automáticamente en la nube ✅</p>
+                    <p class="text-[9px] text-slate-400">Guardado automáticamente en la nube ✅</p>
+                    <button id="vac-gcal-btn" onclick="agregarVacacionesGoogleCalendar()"
+                        class="w-full mt-1 py-3 rounded-2xl font-extrabold text-[11px] uppercase bg-white dark:bg-slate-800 text-blue-600 border border-blue-200 dark:border-blue-800 flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                        Agregar a Google Calendar
+                    </button>
                 </div>
             </div>
         </div>
@@ -463,6 +468,9 @@
         }
 
         // Llamado desde el panel VACACIONES
+        // Guarda los datos del último cálculo para usarlos al abrir Google Calendar
+        let lastVacResult = null;
+
         function calcularYGuardarVacaciones() {
             const startStr = document.getElementById('vac-sheet-start').value;
             const dias     = parseInt(document.getElementById('vac-sheet-days').value) || 0;
@@ -470,10 +478,33 @@
             if (!result) return;
 
             const { startDate, returnDay, target } = result;
+
+            // Guardar para Google Calendar
+            lastVacResult = {
+                startStr,
+                endStr:    returnDay.toISOString().slice(0, 10),
+                title:     `🏖️ Vacaciones — ${activeProfile.name}`,
+                desc:      `${target} días (${vacationTypeSheet === '15' ? 'Hábiles' : 'Adicionales corridos'}) desde el ${startDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}. Regreso: ${returnDay.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.`
+            };
+
             document.getElementById('vac-sheet-return-date').textContent = returnDay.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             document.getElementById('vac-sheet-summary').textContent = `${target} días desde el ${startDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })}`;
             document.getElementById('vac-sheet-result').classList.remove('hidden');
             showToast('✅ Vacaciones guardadas en nube', 'success');
+        }
+
+        function agregarVacacionesGoogleCalendar() {
+            if (!lastVacResult) return;
+            const { startStr, endStr, title, desc } = lastVacResult;
+            // Google Calendar usa formato YYYYMMDD para eventos de día completo
+            const start = startStr.replace(/-/g, '');
+            const end   = endStr.replace(/-/g, '');
+            const url = `https://www.google.com/calendar/render?action=TEMPLATE`
+                + `&text=${encodeURIComponent(title)}`
+                + `&dates=${start}/${end}`
+                + `&details=${encodeURIComponent(desc)}`
+                + `&trp=false`;
+            window.open(url, '_blank');
         }
 
         // ══════════════════════════════════════════════════════
@@ -766,6 +797,10 @@
                             </div>
                         </div>
                         <!-- botón borrar -->
+                        <button onclick="abrirGCalDesdeHistorial('${r.startDate}','${r.returnDate}','${r.typeName}',${r.days ? r.days.length : (r.type==='v15'?15:6)})"
+                            class="w-full mt-1 py-2.5 rounded-2xl text-[10px] font-extrabold uppercase text-blue-600 border border-blue-100 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 active:scale-95 transition-transform">
+                            📅 Agregar a Google Calendar
+                        </button>
                         <button onclick="eliminarVacaciones('${r.type}')"
                             class="w-full mt-1 py-2.5 rounded-2xl text-[10px] font-extrabold uppercase text-rose-500 border border-rose-100 dark:border-rose-900 bg-rose-50 dark:bg-rose-900/20 active:scale-95 transition-transform">
                             🗑️ Eliminar este período
@@ -773,6 +808,19 @@
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        function abrirGCalDesdeHistorial(startDate, returnDate, typeName, dias) {
+            const start = startDate.replace(/-/g, '');
+            const end   = returnDate.replace(/-/g, '');
+            const title = `🏖️ Vacaciones — ${activeProfile.name}`;
+            const desc  = `${dias} días (${typeName}) desde el ${new Date(startDate + 'T00:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}. Regreso: ${new Date(returnDate + 'T00:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.`;
+            const url = `https://www.google.com/calendar/render?action=TEMPLATE`
+                + `&text=${encodeURIComponent(title)}`
+                + `&dates=${start}/${end}`
+                + `&details=${encodeURIComponent(desc)}`
+                + `&trp=false`;
+            window.open(url, '_blank');
         }
 
         function eliminarVacaciones(typeKey) {
