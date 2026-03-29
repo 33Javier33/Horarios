@@ -142,7 +142,7 @@
                     <span class="w-2 h-2 rounded-full inline-block" style="background:linear-gradient(135deg,#f59e0b,#fbbf24)"></span>Vacaciones
                 </span>
             </div>
-            <div class="brand-footer italic">CarlosPN Interactive® 2026</div>
+            <button onclick="toggleAbout(true)" class="brand-footer italic hover:text-indigo-500 transition-colors">CarlosPN Interactive® 2026</button>
         </div>
     </main>
 
@@ -1124,6 +1124,12 @@
             }
         }
 
+        function toggleAbout(show) {
+            const m = document.getElementById('about-modal');
+            if (show) { m.classList.remove('hidden'); m.classList.add('flex'); }
+            else       { m.classList.add('hidden');    m.classList.remove('flex'); }
+        }
+
         window.onload = async () => {
             if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(r=>console.log('SW',r)).catch(e=>console.log('SW Error',e)); }
             
@@ -1136,5 +1142,87 @@
             await syncCloudData('LOAD');
         };
     </script>
+    <!-- MODAL: ACERCA DE -->
+    <div id="about-modal" class="hidden fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm flex items-end justify-center">
+        <div class="bg-white dark:bg-slate-900 rounded-t-[2rem] w-full max-w-lg max-h-[88vh] flex flex-col shadow-2xl">
+            <div class="w-10 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-4 flex-shrink-0"></div>
+            <div class="flex-1 overflow-y-auto px-6 pt-6 pb-4">
+                <!-- Marca -->
+                <div class="text-center mb-7">
+                    <div class="w-16 h-16 rounded-[1.25rem] bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200 dark:shadow-indigo-900">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    </div>
+                    <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">CarlosPN Interactive<sup class="text-xs font-bold">®</sup></h2>
+                    <p class="text-[11px] font-bold text-slate-400 tracking-[0.12em] uppercase mt-1">Desarrollo de Apps · 2026</p>
+                </div>
+                <div class="h-px bg-slate-100 dark:bg-slate-800 mb-6"></div>
+                <!-- Autor -->
+                <div class="flex items-center gap-4 mb-5">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                        <span class="text-2xl font-black text-white" style="font-family:'Plus Jakarta Sans',sans-serif">C</span>
+                    </div>
+                    <div>
+                        <p class="font-black text-slate-900 dark:text-white text-base">Carlos</p>
+                        <p class="text-xs font-bold text-indigo-500 mt-0.5">Croupier · Casino de Puerto Varas</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Colaborador desde 2013</p>
+                    </div>
+                </div>
+                <!-- Bio -->
+                <div class="space-y-3 mb-5">
+                    <div class="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                        <p class="text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+                            Colaborador del <strong class="text-slate-900 dark:text-white">Casino de Puerto Varas desde 2013</strong>. Su motivación siempre ha sido velar por las soluciones de sus colegas, facilitando el manejo de herramientas y aplicaciones que les sean verdaderamente útiles en su día a día.
+                        </p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                        <p class="text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+                            Apasionado por la <strong class="text-slate-900 dark:text-white">computación y la tecnología</strong>, lleva más de <strong class="text-slate-900 dark:text-white">5 años</strong> desarrollando aplicaciones con entusiasmo y dedicación, buscando siempre soluciones prácticas y modernas para su equipo.
+                        </p>
+                    </div>
+                    <!-- Historia inspiración -->
+                    <div class="rounded-2xl overflow-hidden border border-amber-100 dark:border-amber-900/40">
+                        <div class="bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-3 flex items-center gap-2">
+                            <span class="text-lg">💡</span>
+                            <span class="text-[11px] font-extrabold text-white uppercase tracking-widest">La historia detrás de esta app</span>
+                        </div>
+                        <div class="bg-amber-50 dark:bg-amber-950/30 p-4">
+                            <p class="text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
+                                La idea nació de una colega que un día le comentó que sería genial tener una app donde uno pudiera agendar sus propios turnos de trabajo de forma simple y visual. Esa chispa fue suficiente — a veces la mejor inspiración viene de quienes más conocen el problema.
+                            </p>
+                            <p class="text-[13px] leading-relaxed text-slate-500 dark:text-slate-400 mt-2">
+                                Así nació <strong class="text-slate-700 dark:text-slate-200">Turnos Pro</strong>: una app pensada por y para los trabajadores, donde cada uno puede llevar el control de su calendario laboral desde su propio celular.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <!-- App card nube -->
+                <div class="rounded-2xl overflow-hidden mb-6">
+                    <div class="bg-gradient-to-r from-indigo-600 to-violet-700 p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                            <span class="text-[11px] font-extrabold text-indigo-200 uppercase tracking-widest">Esta versión — Nube</span>
+                        </div>
+                        <p class="text-[13px] text-white/80 leading-relaxed">
+                            Esta edición guarda y sincroniza todos los datos en la <strong class="text-white">nube (Google Sheets)</strong>, permitiendo acceder al calendario desde cualquier dispositivo con todo respaldado automáticamente.
+                        </p>
+                    </div>
+                    <div class="bg-indigo-50 dark:bg-indigo-950 px-4 py-3 flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span class="text-[11px] text-indigo-400 font-bold">Turnos Pro Cloud · 2026</span>
+                    </div>
+                </div>
+                <!-- Firma -->
+                <div class="text-center pb-2">
+                    <p class="text-[11px] text-slate-300 dark:text-slate-600">Hecho con</p>
+                    <p class="text-sm text-slate-400 font-semibold mt-1">❤️ pasión &amp; ☕ café</p>
+                    <p class="text-[10px] text-slate-300 dark:text-slate-700 mt-2 italic">CarlosPN Interactive® — Todos los derechos reservados</p>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex-shrink-0" style="padding-bottom:calc(1rem + env(safe-area-inset-bottom))">
+                <button onclick="toggleAbout(false)" class="w-full py-4 rounded-2xl bg-indigo-600 text-white font-extrabold text-sm uppercase tracking-wide active:scale-95 transition-transform">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
