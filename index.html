@@ -1122,7 +1122,7 @@
             const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
             const todayShift = activeProfile.shifts.find(x => x.id === activeProfile.assignedShifts[todayStr]);
             for(let i=0; i<90; i++) { const d = new Date(today); d.setDate(today.getDate()+i); const diff = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()))/864e5);
-                if(((diff % cycle)+cycle)%cycle < activeProfile.restDays) { let text = i===0 ? 'Hoy descansas' : (i===1 ? 'Mañana libre' : `${i} días para descansar`); if(todayShift && i>0) text += ` · ${todayShift.name}`; document.getElementById('countdown-container').textContent = text; break; }
+                if(((diff % cycle)+cycle)%cycle < activeProfile.restDays) { let text = i===0 ? 'Hoy descansas' : (i===1 ? 'Mañana libre' : `${i} días para descansar`); if(todayShift && i>0) text += ` · Turno de hoy: ${todayShift.name}`; document.getElementById('countdown-container').textContent = text; break; }
             }
         }
 
