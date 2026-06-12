@@ -20,9 +20,10 @@
     
     <script>
         // ========================================================
-        // ⚠️ PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
+        // ☁️ CONFIGURACIÓN SUPABASE
         // ========================================================
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTofAF66XuOSfdvC-AF4FxE7SKHQC25shlxM5uqIxTPHBQ2gmrF_YjCXz3GnaA46X2fw/exec"; 
+        const SUPABASE_URL = "https://lpulmjzboogixbdxxayo.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdWxtanpib29naXhiZHh4YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjY0NzMsImV4cCI6MjA5MTI0MjQ3M30.vjebyQb4Bb62ZQlNaJZveuxdBYDOmtC4bM7uwAilDzY";
         // ========================================================
 
         tailwind.config = { darkMode: 'class' }
@@ -643,36 +644,41 @@
         }
 
         async function syncCloudData(action) {
-            if(GOOGLE_SCRIPT_URL === "PEGAR_TU_URL_AQUI" || GOOGLE_SCRIPT_URL === "") {
-                if(action === 'SAVE') showToast("⚠️ Configura la URL del Script", "error");
-                return;
-            }
-
             const statusEl = document.getElementById('cloud-status');
             const statusText = document.getElementById('cloud-status-text');
             statusEl.classList.remove('hidden');
-            
-            try {
-                const payload = { action: action, payload: action === 'SAVE' ? appData : null };
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
 
-                if (result.status === "success") {
-                    if(action === 'LOAD' && result.data) {
-                        appData = result.data;
+            const headers = {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json'
+            };
+
+            try {
+                if (action === 'SAVE') {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync`, {
+                        method: 'POST',
+                        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+                        body: JSON.stringify({ id: 'main', payload: appData, updated_at: new Date().toISOString() })
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    statusText.textContent = "Guardado en nube: " + new Date().toLocaleTimeString();
+                    setTimeout(() => statusEl.classList.add('hidden'), 2000);
+
+                } else if (action === 'LOAD') {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.main&select=payload`, { headers });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const rows = await res.json();
+
+                    if (rows.length > 0 && rows[0].payload) {
+                        appData = rows[0].payload;
                         localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
 
-                        // ✅ FIX: Al cargar de la nube, respetar el perfil activo LOCAL de este dispositivo
                         const localActiveId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY);
                         activeProfile = (localActiveId && appData.profiles.find(p => p.id === localActiveId))
                             ? appData.profiles.find(p => p.id === localActiveId)
                             : appData.profiles[0];
 
-                        // Aseguramos vacationDays y reconstruimos vacationRecords si faltan
                         appData.profiles.forEach(p => {
                             if (!p.vacationDays) p.vacationDays = {};
                             reconstruirVacationRecords(p);
@@ -681,16 +687,14 @@
                         refreshAllUI();
                         showToast("✅ Datos Nube Cargados");
                         statusText.textContent = "Última carga: " + new Date().toLocaleTimeString();
+                        setTimeout(() => statusEl.classList.add('hidden'), 2000);
                     } else {
-                        statusText.textContent = "Guardado en nube: " + new Date().toLocaleTimeString();
+                        statusEl.classList.add('hidden');
                     }
-                    setTimeout(() => statusEl.classList.add('hidden'), 2000);
-                } else {
-                    showToast("❌ Error Nube: " + result.msg, "error");
                 }
             } catch (err) {
                 console.error(err);
-                if(action === 'LOAD') showToast("Modo Offline (Sin Nube)", "info"); 
+                if(action === 'LOAD') showToast("Modo Offline (Sin Nube)", "info");
                 else showToast("❌ Error Conexión", "error");
                 statusEl.classList.add('hidden');
             }
