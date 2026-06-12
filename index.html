@@ -24,6 +24,7 @@
         // ========================================================
         const SUPABASE_URL = "https://lpulmjzboogixbdxxayo.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdWxtanpib29naXhiZHh4YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjY0NzMsImV4cCI6MjA5MTI0MjQ3M30.vjebyQb4Bb62ZQlNaJZveuxdBYDOmtC4bM7uwAilDzY";
+        const GAS_MIGRATION_URL = "https://script.google.com/macros/s/AKfycbyTofAF66XuOSfdvC-AF4FxE7SKHQC25shlxM5uqIxTPHBQ2gmrF_YjCXz3GnaA46X2fw/exec";
         // ========================================================
 
         tailwind.config = { darkMode: 'class' }
@@ -229,6 +230,7 @@
             <h3 class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-2">Estado Nube</h3>
             <p id="cloud-status-text" class="text-xs text-slate-500 dark:text-slate-400 italic">Sincronizando automáticamente...</p>
             <button onclick="syncCloudData('LOAD')" class="mt-3 w-full py-3 bg-white dark:bg-slate-800 text-indigo-600 font-bold text-[10px] rounded-xl border border-indigo-200 dark:border-indigo-800 uppercase">Forzar Descarga</button>
+            <button onclick="migrarDesdeGoogleSheets()" class="mt-2 w-full py-3 bg-amber-500 text-white font-bold text-[10px] rounded-xl uppercase">Migrar desde Google Sheets</button>
         </div>
 
         <h3 class="text-xl font-extrabold mb-6">Opciones Locales</h3>
@@ -697,6 +699,46 @@
                 if(action === 'LOAD') showToast("Modo Offline (Sin Nube)", "info");
                 else showToast("❌ Error Conexión", "error");
                 statusEl.classList.add('hidden');
+            }
+        }
+
+        async function migrarDesdeGoogleSheets() {
+            if (!confirm("¿Importar todos los datos desde Google Sheets a Supabase? Esto sobreescribirá los datos actuales en la nube.")) return;
+            showToast("⏳ Descargando datos de Google Sheets...", "info");
+            try {
+                const gasRes = await fetch(GAS_MIGRATION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'LOAD', payload: null })
+                });
+                const gasResult = await gasRes.json();
+                if (gasResult.status !== 'success' || !gasResult.data) throw new Error(gasResult.msg || 'Sin datos en Google Sheets');
+
+                const headers = {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates,return=minimal'
+                };
+                const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ id: 'main', payload: gasResult.data, updated_at: new Date().toISOString() })
+                });
+                if (!sbRes.ok) throw new Error(`Supabase HTTP ${sbRes.status}`);
+
+                appData = gasResult.data;
+                localStorage.setItem('calendarAppData_multiuser_v2', JSON.stringify(appData));
+                const localActiveId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY);
+                activeProfile = (localActiveId && appData.profiles.find(p => p.id === localActiveId))
+                    ? appData.profiles.find(p => p.id === localActiveId)
+                    : appData.profiles[0];
+                appData.profiles.forEach(p => { if (!p.vacationDays) p.vacationDays = {}; reconstruirVacationRecords(p); });
+                refreshAllUI();
+                showToast("✅ Migración completada");
+            } catch (err) {
+                console.error(err);
+                showToast("❌ Error al migrar: " + err.message, "error");
             }
         }
 
