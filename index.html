@@ -658,7 +658,7 @@
 
             try {
                 if (action === 'SAVE') {
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync`, {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
                         method: 'POST',
                         headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
                         body: JSON.stringify({ id: 'main', payload: appData, updated_at: new Date().toISOString() })
