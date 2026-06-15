@@ -74,6 +74,8 @@
         .dark .dragging { background: #1e1b4b !important; }
         .draggable-item { transition: background 0.2s; }
         .brand-footer { font-size: 10px; font-weight: 800; letter-spacing: 0.4em; text-transform: uppercase; color: #94a3b8; }
+        .no-scrollbar { scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
         .toast { padding: 12px 24px; border-radius: 16px; color: white; font-weight: 700; box-shadow: 0 10px 20px rgba(0,0,0,0.2); animation: toast-in 0.3s ease-out; }
         @keyframes toast-in { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         #cloud-status { position: fixed; top: 10px; right: 10px; z-index: 50; transition: opacity 0.3s;}
@@ -129,6 +131,13 @@
                     <select id="displayYear" onchange="jumpToDate()" class="text-lg font-extrabold text-slate-400 bg-transparent border-none focus:ring-0"></select>
                 </div>
                 <button onclick="navigateMonth(1)" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+            <div id="view-tabs" class="flex gap-2 overflow-x-auto pb-2 mb-5 no-scrollbar">
+                <button id="vtab-month"    onclick="setView('month')"    class="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-indigo-600 text-white">Mes</button>
+                <button id="vtab-week"     onclick="setView('week')"     class="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400">Semana</button>
+                <button id="vtab-day"      onclick="setView('day')"      class="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400">Día</button>
+                <button id="vtab-agenda"   onclick="setView('agenda')"   class="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400">Agenda</button>
+                <button id="vtab-holidays" onclick="setView('holidays')" class="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400">Feriados</button>
             </div>
             <div id="calendar-wrapper"></div>
         </div>
@@ -399,26 +408,24 @@
             const goodFriday = new Date(easter); goodFriday.setDate(easter.getDate() - 2);
             const holySaturday = new Date(easter); holySaturday.setDate(easter.getDate() - 1);
 
-            const holidays = new Set();
-            const addHoliday = (d) => holidays.add(d.toISOString().slice(0, 10));
+            const holidays = {};
+            const add = (date, name, desc) => { holidays[date.toISOString().slice(0, 10)] = { name, desc }; };
 
-            // Feriados fijos
-            addHoliday(new Date(year, 0, 1));   // Año Nuevo
-            addHoliday(new Date(year, 4, 1));   // Día del Trabajo
-            addHoliday(new Date(year, 4, 21));  // Glorias Navales
-            addHoliday(new Date(year, 5, 7));   // San Pedro y San Pablo (aproximado — 29 jun se traslada a lunes cercano si aplica)
-            addHoliday(new Date(year, 6, 16));  // Día de la Virgen del Carmen
-            addHoliday(new Date(year, 7, 15));  // Asunción de la Virgen
-            addHoliday(new Date(year, 8, 18));  // Independencia
-            addHoliday(new Date(year, 8, 19));  // Glorias del Ejército
-            addHoliday(new Date(year, 9, 12));  // Encuentro de Dos Mundos
-            addHoliday(new Date(year, 9, 31));  // Día de las Iglesias Evangélicas
-            addHoliday(new Date(year, 10, 1));  // Día de Todos los Santos
-            addHoliday(new Date(year, 11, 8));  // Inmaculada Concepción
-            addHoliday(new Date(year, 11, 25)); // Navidad
-            // Semana Santa
-            addHoliday(goodFriday);
-            addHoliday(holySaturday);
+            add(new Date(year, 0,  1),  'Año Nuevo',                    'Celebración del inicio del nuevo año');
+            add(goodFriday,              'Viernes Santo',                'Conmemoración de la crucifixión de Jesucristo');
+            add(holySaturday,            'Sábado Santo',                 'Vigilia de la Resurrección de Cristo');
+            add(new Date(year, 4,  1),  'Día del Trabajo',              'Conmemoración internacional de los trabajadores');
+            add(new Date(year, 4, 21),  'Glorias Navales',              'Aniversario del Combate Naval de Iquique, 1879');
+            add(new Date(year, 5,  7),  'San Pedro y San Pablo',        'Festividad de los apóstoles Pedro y Pablo');
+            add(new Date(year, 6, 16),  'Virgen del Carmen',            'Patrona de las Fuerzas Armadas de Chile');
+            add(new Date(year, 7, 15),  'Asunción de la Virgen',        'Festividad católica de la Asunción de María');
+            add(new Date(year, 8, 18),  'Fiestas Patrias',              'Aniversario del primer gobierno patrio de Chile, 1810');
+            add(new Date(year, 8, 19),  'Glorias del Ejército',         'Aniversario de las Glorias del Ejército de Chile');
+            add(new Date(year, 9, 12),  'Encuentro de Dos Mundos',      'Conmemoración de la llegada de Colón a América, 1492');
+            add(new Date(year, 9, 31),  'Iglesias Evangélicas',         'Festividad de las iglesias evangélicas y protestantes');
+            add(new Date(year, 10, 1),  'Día de Todos los Santos',      'Festividad en honor a todos los santos');
+            add(new Date(year, 11, 8),  'Inmaculada Concepción',        'Festividad de la Concepción de la Virgen María');
+            add(new Date(year, 11, 25), 'Navidad',                      'Celebración del nacimiento de Jesucristo');
 
             return holidays;
         }
@@ -450,7 +457,7 @@
 
                 if (type === '15') {
                     if (dow === 0 || dow === 6) { current.setDate(current.getDate() + 1); continue; }
-                    if (holidays.has(dateStr))  { current.setDate(current.getDate() + 1); continue; }
+                    if (holidays[dateStr])  { current.setDate(current.getDate() + 1); continue; }
                 }
                 // '6': corrido puro, sin exclusiones
 
@@ -526,6 +533,7 @@
         // ══════════════════════════════════════════════════════
 
         let appData = {}, activeProfile = null, selectedDateForAssignment = null, currentDisplayYear, currentDisplayMonth, selectedDayElement = null;
+        let currentView = 'month', currentDisplayDay = new Date().getDate(), holidayDisplayYear = new Date().getFullYear();
 
         // CLAVE LOCAL para el perfil activo por dispositivo (NO sube a la nube)
         const LOCAL_ACTIVE_PROFILE_KEY = 'localActiveProfileId_v1';
@@ -1056,8 +1064,8 @@
                 if(d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()) cls += " today";
 
                 // Indicador de feriado
-                const isHoliday = holidays.has(dateStr);
-                const holidayDot = isHoliday ? '<div class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_4px_#f87171]"></div>' : '';
+                const holiday = holidays[dateStr];
+                const holidayDot = holiday ? `<div class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_4px_#f87171]" title="${holiday.name}"></div>` : '';
 
                 html += `<div class="${cls}" ${style} onclick="handleDayClick('${dateStr}', this)"><span>${d}</span><span class="shift-name-label">${label}</span>${activeProfile.notes[dateStr] ? '<div class="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>' : ''}${holidayDot}</div>`;
             }
@@ -1159,9 +1167,60 @@
         }
         function closeImportModal(e) { if(e.target.id === 'importShiftModal') { document.getElementById('importShiftModal').classList.add('hidden'); } }
 
-        function navigateMonth(dir) { currentDisplayMonth += dir; if(currentDisplayMonth<0){currentDisplayMonth=11;currentDisplayYear--} else if(currentDisplayMonth>11){currentDisplayMonth=0;currentDisplayYear++} renderCurrentCalendar(); }
-        function jumpToDate() { currentDisplayMonth = parseInt(document.getElementById('displayMonth').value); currentDisplayYear = parseInt(document.getElementById('displayYear').value); renderCurrentCalendar(); }
-        function renderCurrentCalendar() { document.getElementById('calendar-wrapper').innerHTML = createMonthCalendar(currentDisplayYear, currentDisplayMonth); document.getElementById('displayMonth').value = currentDisplayMonth; document.getElementById('displayYear').value = currentDisplayYear; }
+        function navigateMonth(dir) {
+            if (currentView === 'month') {
+                currentDisplayMonth += dir;
+                if(currentDisplayMonth<0){currentDisplayMonth=11;currentDisplayYear--;} else if(currentDisplayMonth>11){currentDisplayMonth=0;currentDisplayYear++;}
+            } else if (currentView === 'week') {
+                const d = new Date(currentDisplayYear, currentDisplayMonth, currentDisplayDay); d.setDate(d.getDate() + dir*7);
+                currentDisplayYear=d.getFullYear(); currentDisplayMonth=d.getMonth(); currentDisplayDay=d.getDate();
+            } else if (currentView === 'day') {
+                const d = new Date(currentDisplayYear, currentDisplayMonth, currentDisplayDay); d.setDate(d.getDate() + dir);
+                currentDisplayYear=d.getFullYear(); currentDisplayMonth=d.getMonth(); currentDisplayDay=d.getDate();
+            } else if (currentView === 'holidays') { holidayDisplayYear += dir; }
+            renderCurrentCalendar();
+        }
+        function jumpToDate() {
+            currentDisplayMonth = parseInt(document.getElementById('displayMonth').value);
+            currentDisplayYear = parseInt(document.getElementById('displayYear').value);
+            if(currentView === 'holidays') holidayDisplayYear = currentDisplayYear;
+            renderCurrentCalendar();
+        }
+        function setView(v) {
+            currentView = v;
+            const activeClass = 'flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-indigo-600 text-white';
+            const inactiveClass = 'flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400';
+            ['month','week','day','agenda','holidays'].forEach(n => { const b = document.getElementById('vtab-'+n); if(b) b.className = n===v ? activeClass : inactiveClass; });
+            const monthSel = document.getElementById('displayMonth');
+            if(monthSel) monthSel.style.visibility = (v==='holidays') ? 'hidden' : '';
+            renderCurrentCalendar();
+        }
+        function goToDay(dateStr) {
+            const d = new Date(dateStr+'T00:00:00');
+            currentDisplayYear=d.getFullYear(); currentDisplayMonth=d.getMonth(); currentDisplayDay=d.getDate();
+            setView('day');
+        }
+        function saveDayViewNote(dateStr) {
+            const ta = document.getElementById('day-view-note'); if(!ta) return;
+            activeProfile.notes[dateStr] = ta.value; saveToLocalStorage(); showToast('Nota guardada');
+        }
+        function renderCurrentCalendar() {
+            const w = document.getElementById('calendar-wrapper'); if(!w) return;
+            const monthSel = document.getElementById('displayMonth');
+            if(currentView === 'holidays') {
+                if(monthSel) monthSel.style.visibility='hidden';
+                document.getElementById('displayYear').value = holidayDisplayYear;
+                w.innerHTML = createHolidaysCalendar();
+            } else {
+                if(monthSel) monthSel.style.visibility='';
+                document.getElementById('displayMonth').value = currentDisplayMonth;
+                document.getElementById('displayYear').value = currentDisplayYear;
+                if(currentView==='month')   w.innerHTML = createMonthCalendar(currentDisplayYear, currentDisplayMonth);
+                else if(currentView==='week')   w.innerHTML = createWeekCalendar();
+                else if(currentView==='day')    w.innerHTML = createDayCalendar();
+                else if(currentView==='agenda') w.innerHTML = createAgendaCalendar();
+            }
+        }
         
         function updateCountdown() {
             const ref = new Date(activeProfile.referenceDate); const today = new Date(); today.setHours(0,0,0,0); const cycle = activeProfile.workDays + activeProfile.restDays;
@@ -1187,6 +1246,131 @@
                     break;
                 }
             }
+        }
+
+        // ══════════════════════════════════════════════════════
+        // VISTAS: Semana · Día · Agenda · Feriados
+        // ══════════════════════════════════════════════════════
+        function _pad(n){ return String(n).padStart(2,'0'); }
+        function _dateStr(d){ return `${d.getFullYear()}-${_pad(d.getMonth()+1)}-${_pad(d.getDate())}`; }
+        function _todayStr(){ const t=new Date(); return `${t.getFullYear()}-${_pad(t.getMonth()+1)}-${_pad(t.getDate())}`; }
+
+        function createWeekCalendar() {
+            const pivot = new Date(currentDisplayYear, currentDisplayMonth, currentDisplayDay);
+            const dow = (pivot.getDay()+6)%7;
+            const monday = new Date(pivot); monday.setDate(pivot.getDate()-dow);
+            const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+            const ref = new Date(activeProfile.referenceDate);
+            const cycle = activeProfile.workDays + activeProfile.restDays;
+            const vacDays = activeProfile.vacationDays || {};
+            const todayS = _todayStr();
+            const dayN = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+            const monN = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            let html = `<div class="text-center text-[10px] font-extrabold text-slate-400 uppercase mb-4 tracking-widest">${monday.getDate()} ${monN[monday.getMonth()]} – ${sunday.getDate()} ${monN[sunday.getMonth()]} ${sunday.getFullYear()}</div><div class="space-y-2">`;
+            for(let i=0;i<7;i++){
+                const d=new Date(monday); d.setDate(monday.getDate()+i);
+                const ds=_dateStr(d);
+                const diff=Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
+                const pos=((diff%cycle)+cycle)%cycle;
+                const hols=getChileanHolidays(d.getFullYear()); const hol=hols[ds];
+                const isToday=ds===todayS; const note=activeProfile.notes[ds];
+                let chip='',bar='#e2e8f0';
+                if(vacDays[ds]==='v15'){ chip=`<span class="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-extrabold text-[9px]">VACAC.</span>`; bar='#f59e0b'; }
+                else if(vacDays[ds]==='v6'){ chip=`<span class="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-700 font-extrabold text-[9px]">+6 DÍAS</span>`; bar='#8b5cf6'; }
+                else if(pos<activeProfile.restDays){ chip=`<span class="px-2 py-0.5 rounded-lg font-extrabold text-[9px]" style="background:${activeProfile.freeDayColor}22;color:${activeProfile.freeDayColor}">LIBRE</span>`; bar=activeProfile.freeDayColor; }
+                else{ const sid=activeProfile.assignedShifts[ds]; const s=activeProfile.shifts.find(x=>x.id===sid);
+                    if(s){ chip=`<span class="px-2 py-0.5 rounded-lg font-extrabold text-[9px] text-white" style="background:${s.color}">${s.name}</span>`; bar=s.color; }
+                    else{ chip=`<span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400 font-extrabold text-[9px]">TRABAJO</span>`; bar='#94a3b8'; }
+                }
+                html+=`<div onclick="goToDay('${ds}')" class="flex items-center gap-3 p-3 rounded-2xl cursor-pointer ${isToday?'bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800':'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'}">
+                    <div class="w-1 h-12 rounded-full flex-shrink-0" style="background:${bar}"></div>
+                    <div class="w-14 flex-shrink-0 text-center">
+                        <div class="text-[9px] font-extrabold text-slate-400 uppercase">${dayN[i].slice(0,3)}</div>
+                        <div class="text-xl font-extrabold ${isToday?'text-indigo-600':'dark:text-white'}">${d.getDate()}</div>
+                        <div class="text-[9px] text-slate-400">${monN[d.getMonth()]}</div>
+                    </div>
+                    <div class="flex-grow flex flex-wrap items-center gap-1.5">${chip}${hol?`<span class="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/30 text-red-500 font-bold text-[8px]">${hol.name}</span>`:''}${note?`<span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_#fbbf24] inline-block"></span>`:''}
+                    </div>
+                </div>`;
+            }
+            return html+'</div>';
+        }
+
+        function createDayCalendar() {
+            const d = new Date(currentDisplayYear, currentDisplayMonth, currentDisplayDay);
+            const ds = _dateStr(d);
+            const ref = new Date(activeProfile.referenceDate);
+            const cycle = activeProfile.workDays + activeProfile.restDays;
+            const diff = Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
+            const pos = ((diff%cycle)+cycle)%cycle;
+            const vacDays = activeProfile.vacationDays || {};
+            const hols = getChileanHolidays(d.getFullYear()); const hol = hols[ds];
+            const note = activeProfile.notes[ds] || '';
+            const isToday = ds===_todayStr();
+            const dayNL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+            const monL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            let statusHtml='';
+            if(vacDays[ds]==='v15'){ statusHtml=`<div class="text-center p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20"><div class="text-2xl font-extrabold text-amber-700">VACACIONES</div><div class="text-xs text-amber-600 mt-1">15 Días Hábiles</div></div>`; }
+            else if(vacDays[ds]==='v6'){ statusHtml=`<div class="text-center p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20"><div class="text-2xl font-extrabold text-violet-700">VACACIONES</div><div class="text-xs text-violet-600 mt-1">6 Días Adicionales</div></div>`; }
+            else if(pos<activeProfile.restDays){ statusHtml=`<div class="text-center p-4 rounded-2xl" style="background:${activeProfile.freeDayColor}18"><div class="text-3xl font-extrabold" style="color:${activeProfile.freeDayColor}">LIBRE</div><div class="text-xs font-bold mt-1 opacity-60" style="color:${activeProfile.freeDayColor}">Día de descanso</div></div>`; }
+            else{ const sid=activeProfile.assignedShifts[ds]; const s=activeProfile.shifts.find(x=>x.id===sid);
+                if(s){ statusHtml=`<div class="text-center p-4 rounded-2xl text-white" style="background:${s.color}"><div class="text-xl font-extrabold">${s.name}</div><div class="text-xs font-bold mt-1 opacity-70">Turno asignado</div></div>`; }
+                else{ statusHtml=`<div onclick="openModal('${ds}')" class="text-center p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 cursor-pointer"><div class="text-xl font-extrabold text-slate-600 dark:text-slate-300">DÍA DE TRABAJO</div><div class="text-xs text-slate-400 mt-1">Toca para asignar turno</div></div>`; }
+            }
+            const holHtml=hol?`<div class="p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 flex items-start gap-3"><div class="w-2 h-2 rounded-full bg-red-400 mt-1 flex-shrink-0 shadow-[0_0_4px_#f87171]"></div><div><div class="font-extrabold text-red-600 text-xs uppercase">${hol.name}</div><div class="text-[10px] text-red-400 mt-0.5">${hol.desc}</div></div></div>`:'';
+            return `<div class="space-y-4"><div class="text-center py-3 ${isToday?'text-indigo-600':'dark:text-white'}"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-1">${dayNL[d.getDay()]}</div><div class="text-6xl font-extrabold">${d.getDate()}</div><div class="text-sm font-bold text-slate-400 mt-1">${monL[d.getMonth()]} ${d.getFullYear()}</div>${isToday?'<div class="text-[10px] font-bold text-indigo-500 uppercase mt-1">Hoy</div>':''}</div>${holHtml}${statusHtml}<div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-2">Notas del día</div><textarea id="day-view-note" class="w-full bg-transparent text-sm resize-none focus:outline-none dark:text-white" rows="4" placeholder="Escribe una nota para este día...">${note}</textarea><button onclick="saveDayViewNote('${ds}')" class="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-extrabold uppercase">Guardar Nota</button></div></div>`;
+        }
+
+        function createAgendaCalendar() {
+            const today=new Date(); today.setHours(0,0,0,0);
+            const ref=new Date(activeProfile.referenceDate);
+            const cycle=activeProfile.workDays+activeProfile.restDays;
+            const vacDays=activeProfile.vacationDays||{};
+            const dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            const mL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            let html='<div class="space-y-0.5">'; let lastM=-1;
+            for(let i=0;i<90;i++){
+                const d=new Date(today); d.setDate(today.getDate()+i);
+                const ds=_dateStr(d);
+                const diff=Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
+                const pos=((diff%cycle)+cycle)%cycle;
+                const hols=getChileanHolidays(d.getFullYear()); const hol=hols[ds];
+                const note=activeProfile.notes[ds]; const isToday=i===0;
+                if(d.getMonth()!==lastM){ lastM=d.getMonth(); html+=`<div class="text-[10px] font-extrabold text-slate-400 uppercase pt-5 pb-2 tracking-widest">${mL[d.getMonth()]} ${d.getFullYear()}</div>`; }
+                let badge='',dot='#94a3b8';
+                if(vacDays[ds]==='v15'){ badge=`<span class="text-amber-600 text-[9px] font-bold">VACAC.</span>`; dot='#f59e0b'; }
+                else if(vacDays[ds]==='v6'){ badge=`<span class="text-violet-600 text-[9px] font-bold">+6 DÍAS</span>`; dot='#8b5cf6'; }
+                else if(pos<activeProfile.restDays){ badge=`<span class="text-[9px] font-bold" style="color:${activeProfile.freeDayColor}">LIBRE</span>`; dot=activeProfile.freeDayColor; }
+                else{ const sid=activeProfile.assignedShifts[ds]; const s=activeProfile.shifts.find(x=>x.id===sid);
+                    if(s){ badge=`<span class="text-[9px] font-bold text-white px-1.5 py-0.5 rounded" style="background:${s.color}">${s.name}</span>`; dot=s.color; }
+                    else{ badge=`<span class="text-[9px] font-bold text-slate-400">TRABAJO</span>`; }
+                }
+                html+=`<div onclick="goToDay('${ds}')" class="flex items-center gap-3 px-2 py-2 rounded-xl cursor-pointer ${isToday?'bg-indigo-50 dark:bg-indigo-900/20':'hover:bg-slate-50 dark:hover:bg-slate-800/50'}">
+                    <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dot}"></div>
+                    <div class="w-12 flex-shrink-0 text-center"><div class="text-[9px] font-bold text-slate-400 uppercase">${dN[d.getDay()]}</div><div class="text-base font-extrabold ${isToday?'text-indigo-600':'dark:text-white'}">${d.getDate()}</div></div>
+                    <div class="flex-grow flex items-center gap-2 flex-wrap min-w-0">${badge}${hol?`<span class="text-[8px] font-bold text-red-400 bg-red-50 dark:bg-red-900/30 px-1.5 rounded">${hol.name}</span>`:''}${note?`<span class="text-[8px] text-slate-400 italic truncate">${note}</span>`:''}</div>
+                </div>`;
+            }
+            return html+'</div>';
+        }
+
+        function createHolidaysCalendar() {
+            const hols=getChileanHolidays(holidayDisplayYear);
+            const sorted=Object.entries(hols).sort((a,b)=>a[0].localeCompare(b[0]));
+            const dayNL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+            const monN=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+            const todayS=_todayStr();
+            let html=`<div class="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">${sorted.length} feriados en ${holidayDisplayYear}</div><div class="space-y-3">`;
+            sorted.forEach(([ds,info])=>{
+                const d=new Date(ds+'T00:00:00'); const isPast=ds<todayS; const isToday=ds===todayS;
+                html+=`<div class="p-4 rounded-2xl border ${isToday?'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20':isPast?'border-slate-100 dark:border-slate-800 opacity-50':'border-red-100 dark:border-red-900/30 bg-red-50/40 dark:bg-red-900/10'}">
+                    <div class="flex items-start gap-3">
+                        <div class="text-center flex-shrink-0 w-12"><div class="text-[9px] font-extrabold ${isPast?'text-slate-400':'text-red-400'} uppercase">${monN[d.getMonth()]}</div><div class="text-2xl font-extrabold ${isToday?'text-indigo-600':isPast?'text-slate-400':'text-red-500'}">${d.getDate()}</div><div class="text-[9px] text-slate-400">${dayNL[d.getDay()].slice(0,3)}</div></div>
+                        <div class="flex-grow"><div class="font-extrabold text-sm ${isPast?'text-slate-500':'dark:text-white'}">${info.name}</div><div class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">${info.desc}</div></div>
+                    </div>
+                </div>`;
+            });
+            return html+'</div>';
         }
 
         function toggleAbout(show) {
