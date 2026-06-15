@@ -1113,7 +1113,7 @@
 
                 const hasRem = (activeProfile.reminders||[]).some(r => r.date===dateStr);
                 const remDot = hasRem ? '<div class="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-indigo-400 shadow-[0_0_5px_#818cf8]"></div>' : '';
-                html += `<div class="${cls}" ${style} onclick="handleDayClick('${dateStr}', this)"><span>${d}</span><span class="shift-name-label">${label}</span>${activeProfile.notes[dateStr] ? '<div class="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>' : ''}${remDot}${holidayDot}</div>`;
+                html += `<div class="${cls}" data-date="${dateStr}" ${style} onclick="handleDayClick('${dateStr}', this)"><span>${d}</span><span class="shift-name-label">${label}</span>${activeProfile.notes[dateStr] ? '<div class="absolute bottom-1 right-1 w-1 h-1 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>' : ''}${remDot}${holidayDot}</div>`;
             }
             return html + `</div></div>`;
         }
@@ -1311,7 +1311,15 @@
                 if(monthSel) monthSel.style.visibility='';
                 document.getElementById('displayMonth').value = currentDisplayMonth;
                 document.getElementById('displayYear').value = currentDisplayYear;
-                if(currentView==='month')   w.innerHTML = createMonthCalendar(currentDisplayYear, currentDisplayMonth);
+                if(currentView==='month') {
+                    w.innerHTML = createMonthCalendar(currentDisplayYear, currentDisplayMonth);
+                    const _today = new Date();
+                    if(currentDisplayYear === _today.getFullYear() && currentDisplayMonth === _today.getMonth()) {
+                        const _ts = `${_today.getFullYear()}-${String(_today.getMonth()+1).padStart(2,'0')}-${String(_today.getDate()).padStart(2,'0')}`;
+                        const _te = w.querySelector(`[data-date="${_ts}"]`);
+                        if(_te) { selectedDayElement = _te; _te.classList.add('day-selected'); selectedPreviewDate = _ts; renderDayPreview(_ts); }
+                    }
+                }
                 else if(currentView==='week')   w.innerHTML = createWeekCalendar();
                 else if(currentView==='day')    w.innerHTML = createDayCalendar();
                 else if(currentView==='agenda') w.innerHTML = createAgendaCalendar();
