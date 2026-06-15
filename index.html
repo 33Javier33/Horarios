@@ -1378,6 +1378,7 @@
                 const pos=((diff%cycle)+cycle)%cycle;
                 const hols=getChileanHolidays(d.getFullYear()); const hol=hols[ds];
                 const isToday=ds===todayS; const note=activeProfile.notes[ds];
+                const dayRems=(activeProfile.reminders||[]).filter(r=>r.date===ds);
                 let chip='',bar='#e2e8f0';
                 if(vacDays[ds]==='v15'){ chip=`<span class="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-extrabold text-[9px]">VACAC.</span>`; bar='#f59e0b'; }
                 else if(vacDays[ds]==='v6'){ chip=`<span class="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-700 font-extrabold text-[9px]">+6 DÍAS</span>`; bar='#8b5cf6'; }
@@ -1386,14 +1387,19 @@
                     if(s){ chip=`<span class="px-2 py-0.5 rounded-lg font-extrabold text-[9px] text-white" style="background:${s.color}">${s.name}</span>`; bar=s.color; }
                     else{ chip=`<span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400 font-extrabold text-[9px]">TRABAJO</span>`; bar='#94a3b8'; }
                 }
+                let agendaHtml='';
+                if(note) agendaHtml+=`<div class="flex items-center gap-1 min-w-0"><span class="text-[9px] flex-shrink-0">📝</span><span class="text-[9px] text-slate-500 dark:text-slate-400 truncate">${note}</span></div>`;
+                dayRems.forEach(r=>{ const tl=r.time?` · ${r.time}`:''; agendaHtml+=`<div class="flex items-center gap-1 min-w-0"><span class="text-[9px] flex-shrink-0">${r.type==='reminder'?'🔔':'📌'}</span><span class="text-[9px] ${r.type==='reminder'?'text-amber-600 dark:text-amber-400 font-semibold':'text-slate-500 dark:text-slate-400'} truncate">${r.text}${tl}</span></div>`; });
                 html+=`<div onclick="goToDay('${ds}')" class="flex items-center gap-3 p-3 rounded-2xl cursor-pointer ${isToday?'bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800':'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'}">
-                    <div class="w-1 h-12 rounded-full flex-shrink-0" style="background:${bar}"></div>
+                    <div class="w-1 self-stretch rounded-full flex-shrink-0" style="background:${bar}"></div>
                     <div class="w-14 flex-shrink-0 text-center">
                         <div class="text-[9px] font-extrabold text-slate-400 uppercase">${dayN[i].slice(0,3)}</div>
                         <div class="text-xl font-extrabold ${isToday?'text-indigo-600':'dark:text-white'}">${d.getDate()}</div>
                         <div class="text-[9px] text-slate-400">${monN[d.getMonth()]}</div>
                     </div>
-                    <div class="flex-grow flex flex-wrap items-center gap-1.5">${chip}${hol?`<span class="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/30 text-red-500 font-bold text-[8px]">${hol.name}</span>`:''}${note?`<span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_#fbbf24] inline-block"></span>`:''}
+                    <div class="flex-grow min-w-0">
+                        <div class="flex flex-wrap items-center gap-1.5">${chip}${hol?`<span class="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/30 text-red-500 font-bold text-[8px]">${hol.name}</span>`:''}</div>
+                        ${agendaHtml?`<div class="mt-1 space-y-0.5">${agendaHtml}</div>`:''}
                     </div>
                 </div>`;
             }
@@ -1422,7 +1428,13 @@
                 else{ statusHtml=`<div onclick="openModal('${ds}')" class="text-center p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 cursor-pointer"><div class="text-xl font-extrabold text-slate-600 dark:text-slate-300">DÍA DE TRABAJO</div><div class="text-xs text-slate-400 mt-1">Toca para asignar turno</div></div>`; }
             }
             const holHtml=hol?`<div class="p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 flex items-start gap-3"><div class="w-2 h-2 rounded-full bg-red-400 mt-1 flex-shrink-0 shadow-[0_0_4px_#f87171]"></div><div><div class="font-extrabold text-red-600 text-xs uppercase">${hol.name}</div><div class="text-[10px] text-red-400 mt-0.5">${hol.desc}</div></div></div>`:'';
-            return `<div class="space-y-4"><div class="text-center py-3 ${isToday?'text-indigo-600':'dark:text-white'}"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-1">${dayNL[d.getDay()]}</div><div class="text-6xl font-extrabold">${d.getDate()}</div><div class="text-sm font-bold text-slate-400 mt-1">${monL[d.getMonth()]} ${d.getFullYear()}</div>${isToday?'<div class="text-[10px] font-bold text-indigo-500 uppercase mt-1">Hoy</div>':''}</div>${holHtml}${statusHtml}<div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-2">Notas del día</div><textarea id="day-view-note" class="w-full bg-transparent text-sm resize-none focus:outline-none dark:text-white" rows="4" placeholder="Escribe una nota para este día...">${note}</textarea><button onclick="saveDayViewNote('${ds}')" class="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-extrabold uppercase">Guardar Nota</button></div></div>`;
+            const dayRems=(activeProfile.reminders||[]).filter(r=>r.date===ds);
+            const agendaSectionHtml = (note||dayRems.length) ? `<div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 space-y-2">
+                <div class="flex items-center justify-between"><div class="text-[10px] font-extrabold text-slate-400 uppercase">Agenda</div><button onclick="event.stopPropagation();openReminderSheet('${ds}')" class="px-2 py-1 rounded-lg bg-indigo-600 text-white text-[9px] font-extrabold uppercase">+ Agregar</button></div>
+                ${note?`<div class="flex items-start gap-2 p-2 rounded-xl bg-white dark:bg-slate-700"><span class="text-xs mt-0.5">📝</span><span class="text-xs text-slate-600 dark:text-slate-300">${note}</span></div>`:''}
+                ${dayRems.map(r=>{ const tl=r.time?`<span class="ml-1 font-bold text-amber-500 text-[9px]">${r.time}</span>`:''; return `<div class="flex items-center gap-2 p-2 rounded-xl ${r.type==='reminder'?'bg-amber-50 dark:bg-amber-900/20':'bg-white dark:bg-slate-700'}"><span class="text-xs">${r.type==='reminder'?'🔔':'📌'}</span><span class="text-xs ${r.type==='reminder'?'text-amber-700 dark:text-amber-300 font-semibold':'text-slate-600 dark:text-slate-300'} flex-grow">${r.text}</span>${tl}</div>`; }).join('')}
+            </div>` : `<button onclick="openReminderSheet('${ds}')" class="w-full p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-[10px] font-extrabold text-slate-400 uppercase">+ Agregar a agenda</button>`;
+            return `<div class="space-y-4"><div class="text-center py-3 ${isToday?'text-indigo-600':'dark:text-white'}"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-1">${dayNL[d.getDay()]}</div><div class="text-6xl font-extrabold">${d.getDate()}</div><div class="text-sm font-bold text-slate-400 mt-1">${monL[d.getMonth()]} ${d.getFullYear()}</div>${isToday?'<div class="text-[10px] font-bold text-indigo-500 uppercase mt-1">Hoy</div>':''}</div>${holHtml}${statusHtml}${agendaSectionHtml}<div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-2">Nota del día</div><textarea id="day-view-note" class="w-full bg-transparent text-sm resize-none focus:outline-none dark:text-white" rows="3" placeholder="Escribe una nota para este día...">${note}</textarea><button onclick="saveDayViewNote('${ds}')" class="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-extrabold uppercase">Guardar Nota</button></div></div>`;
         }
 
         // ── Recordatorios / Agenda ─────────────────────────────
