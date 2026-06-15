@@ -534,7 +534,7 @@
         // ══════════════════════════════════════════════════════
 
         let appData = {}, activeProfile = null, selectedDateForAssignment = null, currentDisplayYear, currentDisplayMonth, selectedDayElement = null;
-        let currentView = 'month', currentDisplayDay = new Date().getDate(), holidayDisplayYear = new Date().getFullYear();
+        let currentView = 'month', currentDisplayDay = new Date().getDate(), holidayDisplayYear = new Date().getFullYear(), selectedPreviewDate = null;
 
         // CLAVE LOCAL para el perfil activo por dispositivo (NO sube a la nube)
         const LOCAL_ACTIVE_PROFILE_KEY = 'localActiveProfileId_v1';
@@ -1077,6 +1077,7 @@
             if(selectedDayElement === el) { openModal(date); return; }
             if(selectedDayElement) selectedDayElement.classList.remove('day-selected');
             selectedDayElement = el; el.classList.add('day-selected');
+            selectedPreviewDate = date;
             renderDayPreview(date);
         }
         function renderDayPreview(dateStr) {
@@ -1227,6 +1228,10 @@
         }
         function setView(v) {
             currentView = v;
+            if(v === 'day' && selectedPreviewDate) {
+                const d = new Date(selectedPreviewDate+'T00:00:00');
+                currentDisplayYear=d.getFullYear(); currentDisplayMonth=d.getMonth(); currentDisplayDay=d.getDate();
+            }
             const activeClass = 'flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-indigo-600 text-white';
             const inactiveClass = 'flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400';
             ['month','week','day','agenda','holidays'].forEach(n => { const b = document.getElementById('vtab-'+n); if(b) b.className = n===v ? activeClass : inactiveClass; });
