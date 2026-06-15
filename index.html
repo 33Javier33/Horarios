@@ -1352,7 +1352,7 @@
                     } else {
                         const base = i===1 ? 'Mañana libre' : `${i} días para descansar`;
                         if(todayShift) {
-                            el.innerHTML = `<span>${base}</span> · <span class="font-extrabold px-2 py-0.5 rounded-lg text-white" style="background:${todayShift.color}">${todayShift.name}</span>`;
+                            el.innerHTML = `<span>${base}</span> · <span class="opacity-75">Turno de hoy:</span> <span class="font-extrabold px-2 py-0.5 rounded-lg text-white" style="background:${todayShift.color}">${todayShift.name}</span>`;
                         } else {
                             el.textContent = base;
                         }
