@@ -140,6 +140,7 @@
                 <button id="vtab-holidays" onclick="setView('holidays')" class="flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-400">Feriados</button>
             </div>
             <div id="calendar-wrapper"></div>
+            <div id="day-preview" class="hidden mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 transition-all"></div>
         </div>
         <div class="text-center py-8">
             <div class="flex items-center justify-center gap-4 mb-3">
@@ -1072,7 +1073,45 @@
             return html + `</div></div>`;
         }
 
-        function handleDayClick(date, el) { if(selectedDayElement === el) { openModal(date); return; } if(selectedDayElement) selectedDayElement.classList.remove('day-selected'); selectedDayElement = el; el.classList.add('day-selected'); }
+        function handleDayClick(date, el) {
+            if(selectedDayElement === el) { openModal(date); return; }
+            if(selectedDayElement) selectedDayElement.classList.remove('day-selected');
+            selectedDayElement = el; el.classList.add('day-selected');
+            renderDayPreview(date);
+        }
+        function renderDayPreview(dateStr) {
+            const panel = document.getElementById('day-preview'); if(!panel) return;
+            const d = new Date(dateStr+'T00:00:00');
+            const ref = new Date(activeProfile.referenceDate);
+            const cycle = activeProfile.workDays + activeProfile.restDays;
+            const diff = Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
+            const pos = ((diff%cycle)+cycle)%cycle;
+            const vacDays = activeProfile.vacationDays||{};
+            const hols = getChileanHolidays(d.getFullYear()); const hol = hols[dateStr];
+            const note = activeProfile.notes[dateStr]||'';
+            const dayNL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+            const monL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            let statusHtml='', statusColor='#6366f1';
+            if(vacDays[dateStr]==='v15'){ statusHtml=`<span class="px-2 py-1 rounded-xl bg-amber-100 text-amber-700 font-extrabold text-[10px] uppercase">VACACIONES · 15 Hábiles</span>`; statusColor='#f59e0b'; }
+            else if(vacDays[dateStr]==='v6'){ statusHtml=`<span class="px-2 py-1 rounded-xl bg-violet-100 text-violet-700 font-extrabold text-[10px] uppercase">VACACIONES · 6 Adicionales</span>`; statusColor='#8b5cf6'; }
+            else if(pos<activeProfile.restDays){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase" style="background:${activeProfile.freeDayColor}22;color:${activeProfile.freeDayColor}">LIBRE</span>`; statusColor=activeProfile.freeDayColor; }
+            else{ const sid=activeProfile.assignedShifts[dateStr]; const s=activeProfile.shifts.find(x=>x.id===sid);
+                if(s){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase text-white" style="background:${s.color}">${s.name}</span>`; statusColor=s.color; }
+                else{ statusHtml=`<span class="px-2 py-1 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 font-extrabold text-[10px] uppercase">Trabajo · Sin turno</span>`; }
+            }
+            const holHtml = hol ? `<div class="flex items-center gap-1.5 mt-2"><div class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 shadow-[0_0_4px_#f87171]"></div><span class="text-[10px] font-bold text-red-500">${hol.name} <span class="font-normal text-red-400">— ${hol.desc}</span></span></div>` : '';
+            const noteHtml = note ? `<div class="mt-2 text-[11px] text-slate-500 italic border-l-2 border-slate-200 dark:border-slate-600 pl-2">${note}</div>` : '';
+            panel.style.borderLeftColor = statusColor;
+            panel.style.borderLeftWidth = '3px';
+            panel.innerHTML = `<div class="flex items-start justify-between gap-3">
+                <div class="flex-grow">
+                    <div class="flex items-center gap-2 flex-wrap"><span class="font-extrabold text-sm dark:text-white">${dayNL[d.getDay()]} ${d.getDate()} de ${monL[d.getMonth()]}</span>${statusHtml}</div>
+                    ${holHtml}${noteHtml}
+                </div>
+                <button onclick="openModal('${dateStr}')" class="flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase bg-indigo-600 text-white">Editar</button>
+            </div>`;
+            panel.classList.remove('hidden');
+        }
 
         function openModal(date) {
             selectedDateForAssignment = date; const d = new Date(date + "T00:00:00");
@@ -1206,6 +1245,8 @@
         }
         function renderCurrentCalendar() {
             const w = document.getElementById('calendar-wrapper'); if(!w) return;
+            selectedDayElement = null;
+            const preview = document.getElementById('day-preview'); if(preview) preview.classList.add('hidden');
             const monthSel = document.getElementById('displayMonth');
             if(currentView === 'holidays') {
                 if(monthSel) monthSel.style.visibility='hidden';
