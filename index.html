@@ -351,6 +351,41 @@
         </div>
     </div>
 
+    <!-- PANEL AGREGAR RECORDATORIO/NOTA AGENDA -->
+    <div id="sheet-reminder-add" class="bottom-sheet bg-white dark:bg-slate-900 border-t dark:border-slate-800">
+        <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+        <h3 class="text-xl font-extrabold mb-5" id="reminder-sheet-title">Agregar a la Agenda</h3>
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1 block">Fecha</label>
+                <input type="date" id="reminder-date" class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm font-bold">
+            </div>
+            <div>
+                <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1 block">Texto</label>
+                <textarea id="reminder-text" rows="3" placeholder="Escribe aquí..." class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none text-sm resize-none"></textarea>
+            </div>
+            <div>
+                <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2 block">Tipo</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="rtype-note" onclick="setReminderType('note')" class="py-3 rounded-2xl font-extrabold text-xs uppercase bg-indigo-600 text-white">Nota</button>
+                    <button id="rtype-reminder" onclick="setReminderType('reminder')" class="py-3 rounded-2xl font-extrabold text-xs uppercase bg-slate-100 dark:bg-slate-800 text-slate-400">Recordatorio</button>
+                </div>
+            </div>
+            <div id="reminder-notify-options" class="hidden space-y-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800">
+                <p class="text-[10px] font-extrabold text-amber-600 uppercase tracking-widest">Notificaciones</p>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="notify-day-before" checked class="w-5 h-5 rounded text-amber-500">
+                    <span class="text-sm font-bold dark:text-white">Avisar un día antes</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="notify-on-day" checked class="w-5 h-5 rounded text-amber-500">
+                    <span class="text-sm font-bold dark:text-white">Avisar el día del recordatorio</span>
+                </label>
+            </div>
+        </div>
+        <button onclick="saveReminder()" class="mt-6 w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl uppercase text-sm">Guardar</button>
+    </div>
+
     <!-- MODAL DETALLE -->
     <div id="shiftModal" class="fixed inset-0 z-[200] items-end sm:items-center justify-center hidden bg-slate-950/60 backdrop-blur-md p-4" onclick="closeModal(event)">
         <div id="modal-content" class="bg-white dark:bg-slate-900 rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden">
@@ -576,7 +611,7 @@
             return (((r * 299) + (g * 587) + (b * 114)) / 1000) > 150 ? '#000000' : '#FFFFFF';
         }
 
-        function createDefaultProfile() { return { id: crypto.randomUUID(), name: 'Principal', shifts: [], assignedShifts: {}, referenceDate: new Date().toISOString(), freeDayColor: '#10b981', workDays: 6, restDays: 2, notes: {}, vacationDays: {} }; }
+        function createDefaultProfile() { return { id: crypto.randomUUID(), name: 'Principal', shifts: [], assignedShifts: {}, referenceDate: new Date().toISOString(), freeDayColor: '#10b981', workDays: 6, restDays: 2, notes: {}, vacationDays: {}, reminders: [] }; }
 
         // ══════════════════════════════════════════════════════
         // Si existen vacationDays pero no vacationRecords,
@@ -1367,22 +1402,89 @@
             return `<div class="space-y-4"><div class="text-center py-3 ${isToday?'text-indigo-600':'dark:text-white'}"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-1">${dayNL[d.getDay()]}</div><div class="text-6xl font-extrabold">${d.getDate()}</div><div class="text-sm font-bold text-slate-400 mt-1">${monL[d.getMonth()]} ${d.getFullYear()}</div>${isToday?'<div class="text-[10px] font-bold text-indigo-500 uppercase mt-1">Hoy</div>':''}</div>${holHtml}${statusHtml}<div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800"><div class="text-[10px] font-extrabold text-slate-400 uppercase mb-2">Notas del día</div><textarea id="day-view-note" class="w-full bg-transparent text-sm resize-none focus:outline-none dark:text-white" rows="4" placeholder="Escribe una nota para este día...">${note}</textarea><button onclick="saveDayViewNote('${ds}')" class="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-extrabold uppercase">Guardar Nota</button></div></div>`;
         }
 
+        // ── Recordatorios / Agenda ─────────────────────────────
+        let reminderEditType = 'note', editingReminderId = null;
+
+        function openReminderSheet(dateStr) {
+            document.getElementById('reminder-date').value = dateStr || _todayStr();
+            document.getElementById('reminder-text').value = '';
+            document.getElementById('notify-day-before').checked = true;
+            document.getElementById('notify-on-day').checked = true;
+            document.getElementById('reminder-sheet-title').textContent = 'Agregar a la Agenda';
+            editingReminderId = null;
+            setReminderType('note');
+            openSheet('sheet-reminder-add');
+        }
+        function setReminderType(type) {
+            reminderEditType = type;
+            const isR = type === 'reminder';
+            document.getElementById('rtype-note').className = `py-3 rounded-2xl font-extrabold text-xs uppercase ${!isR?'bg-indigo-600 text-white':'bg-slate-100 dark:bg-slate-800 text-slate-400'}`;
+            document.getElementById('rtype-reminder').className = `py-3 rounded-2xl font-extrabold text-xs uppercase ${isR?'bg-amber-500 text-white':'bg-slate-100 dark:bg-slate-800 text-slate-400'}`;
+            document.getElementById('reminder-notify-options').classList.toggle('hidden', !isR);
+        }
+        function saveReminder() {
+            const dateStr = document.getElementById('reminder-date').value;
+            const text = document.getElementById('reminder-text').value.trim();
+            if (!dateStr || !text) { showToast('Completa fecha y texto', 'error'); return; }
+            if (!activeProfile.reminders) activeProfile.reminders = [];
+            const isR = reminderEditType === 'reminder';
+            if (editingReminderId) {
+                const r = activeProfile.reminders.find(x => x.id === editingReminderId);
+                if (r) { Object.assign(r, { date:dateStr, text, type:reminderEditType, notifyDayBefore:isR&&document.getElementById('notify-day-before').checked, notifyOnDay:isR&&document.getElementById('notify-on-day').checked, notifiedBefore:false, notifiedToday:false }); }
+            } else {
+                activeProfile.reminders.push({ id:crypto.randomUUID(), date:dateStr, text, type:reminderEditType, notifyDayBefore:isR&&document.getElementById('notify-day-before').checked, notifyOnDay:isR&&document.getElementById('notify-on-day').checked, notifiedBefore:false, notifiedToday:false });
+            }
+            saveToLocalStorage(); closeAllSheets();
+            if(currentView==='agenda') renderCurrentCalendar();
+            showToast(isR ? '🔔 Recordatorio guardado' : '📝 Nota guardada');
+            if(isR) requestNotificationPermission();
+        }
+        function deleteReminder(id, e) {
+            e.stopPropagation();
+            if(!confirm('¿Eliminar?')) return;
+            activeProfile.reminders = (activeProfile.reminders||[]).filter(r => r.id !== id);
+            saveToLocalStorage(); if(currentView==='agenda') renderCurrentCalendar();
+        }
+        function requestNotificationPermission() {
+            if(!('Notification' in window)) return;
+            if(Notification.permission==='default') Notification.requestPermission().then(p => { if(p==='granted') checkNotifications(); });
+            else if(Notification.permission==='granted') checkNotifications();
+        }
+        function checkNotifications() {
+            if(!('Notification' in window) || Notification.permission!=='granted') return;
+            const todayS=_todayStr(); const tmr=new Date(); tmr.setDate(tmr.getDate()+1); const tmrS=_dateStr(tmr);
+            let changed=false;
+            appData.profiles.forEach(profile => {
+                (profile.reminders||[]).forEach(r => {
+                    if(r.type!=='reminder') return;
+                    if(r.notifyDayBefore && r.date===tmrS && !r.notifiedBefore) { new Notification(`Mañana: ${r.text}`,{body:`Perfil: ${profile.name}`,icon:'./icons/icon-192x192.png'}); r.notifiedBefore=true; changed=true; }
+                    if(r.notifyOnDay && r.date===todayS && !r.notifiedToday) { new Notification(`Hoy: ${r.text}`,{body:`Perfil: ${profile.name}`,icon:'./icons/icon-192x192.png'}); r.notifiedToday=true; changed=true; }
+                });
+            });
+            if(changed) saveToLocalStorage();
+        }
+
         function createAgendaCalendar() {
             const today=new Date(); today.setHours(0,0,0,0);
             const ref=new Date(activeProfile.referenceDate);
             const cycle=activeProfile.workDays+activeProfile.restDays;
             const vacDays=activeProfile.vacationDays||{};
+            const rems = activeProfile.reminders||[];
             const dN=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
             const mL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-            let html='<div class="space-y-0.5">'; let lastM=-1;
+            // Group reminders by date
+            const remByDate={};
+            rems.forEach(r => { if(!remByDate[r.date]) remByDate[r.date]=[]; remByDate[r.date].push(r); });
+            let html=`<div class="flex items-center justify-between mb-4"><p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Próximos 90 días</p><button onclick="openReminderSheet('')" class="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-extrabold uppercase">+ Agregar</button></div><div class="space-y-1">`;
+            let lastM=-1;
             for(let i=0;i<90;i++){
                 const d=new Date(today); d.setDate(today.getDate()+i);
                 const ds=_dateStr(d);
                 const diff=Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
                 const pos=((diff%cycle)+cycle)%cycle;
                 const hols=getChileanHolidays(d.getFullYear()); const hol=hols[ds];
-                const note=activeProfile.notes[ds]; const isToday=i===0;
-                if(d.getMonth()!==lastM){ lastM=d.getMonth(); html+=`<div class="text-[10px] font-extrabold text-slate-400 uppercase pt-5 pb-2 tracking-widest">${mL[d.getMonth()]} ${d.getFullYear()}</div>`; }
+                const note=activeProfile.notes[ds]; const dayRems=remByDate[ds]||[]; const isToday=i===0;
+                if(d.getMonth()!==lastM){ lastM=d.getMonth(); html+=`<div class="text-[10px] font-extrabold text-slate-400 uppercase pt-5 pb-1 tracking-widest">${mL[d.getMonth()]} ${d.getFullYear()}</div>`; }
                 let badge='',dot='#94a3b8';
                 if(vacDays[ds]==='v15'){ badge=`<span class="text-amber-600 text-[9px] font-bold">VACAC.</span>`; dot='#f59e0b'; }
                 else if(vacDays[ds]==='v6'){ badge=`<span class="text-violet-600 text-[9px] font-bold">+6 DÍAS</span>`; dot='#8b5cf6'; }
@@ -1391,10 +1493,26 @@
                     if(s){ badge=`<span class="text-[9px] font-bold text-white px-1.5 py-0.5 rounded" style="background:${s.color}">${s.name}</span>`; dot=s.color; }
                     else{ badge=`<span class="text-[9px] font-bold text-slate-400">TRABAJO</span>`; }
                 }
-                html+=`<div onclick="goToDay('${ds}')" class="flex items-center gap-3 px-2 py-2 rounded-xl cursor-pointer ${isToday?'bg-indigo-50 dark:bg-indigo-900/20':'hover:bg-slate-50 dark:hover:bg-slate-800/50'}">
-                    <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dot}"></div>
-                    <div class="w-12 flex-shrink-0 text-center"><div class="text-[9px] font-bold text-slate-400 uppercase">${dN[d.getDay()]}</div><div class="text-base font-extrabold ${isToday?'text-indigo-600':'dark:text-white'}">${d.getDate()}</div></div>
-                    <div class="flex-grow flex items-center gap-2 flex-wrap min-w-0">${badge}${hol?`<span class="text-[8px] font-bold text-red-400 bg-red-50 dark:bg-red-900/30 px-1.5 rounded">${hol.name}</span>`:''}${note?`<span class="text-[8px] text-slate-400 italic truncate">${note}</span>`:''}</div>
+                let itemsHtml='';
+                if(note) itemsHtml+=`<div class="flex items-start gap-1.5 mt-1.5"><span class="text-[10px]">📝</span><span class="text-[10px] text-slate-500 dark:text-slate-400 italic flex-grow">${note}</span></div>`;
+                dayRems.forEach(r => {
+                    const notifyLabel = r.type==='reminder' ? `<span class="text-[8px] font-bold px-1 py-0.5 rounded ${r.notifiedToday||r.notifiedBefore?'bg-slate-100 text-slate-400':'bg-amber-100 text-amber-600'}">${r.notifyDayBefore?'−1d':''}${r.notifyOnDay?' día':''}</span>` : '';
+                    itemsHtml+=`<div class="flex items-center gap-1.5 mt-1.5">
+                        <span class="text-[10px]">${r.type==='reminder'?'🔔':'📌'}</span>
+                        <span class="text-[10px] flex-grow font-semibold ${r.type==='reminder'?'text-amber-600 dark:text-amber-400':'text-slate-600 dark:text-slate-300'}">${r.text}</span>
+                        ${notifyLabel}
+                        <button onclick="deleteReminder('${r.id}',event)" class="text-[10px] text-slate-300 hover:text-red-400 ml-1 font-bold">✕</button>
+                    </div>`;
+                });
+                const hasItems = note||dayRems.length>0;
+                html+=`<div class="px-2 py-2 rounded-xl ${isToday?'bg-indigo-50 dark:bg-indigo-900/20':'hover:bg-slate-50 dark:hover:bg-slate-800/40'}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dot}"></div>
+                        <div onclick="goToDay('${ds}')" class="w-12 flex-shrink-0 text-center cursor-pointer"><div class="text-[9px] font-bold text-slate-400 uppercase">${dN[d.getDay()]}</div><div class="text-base font-extrabold ${isToday?'text-indigo-600':'dark:text-white'}">${d.getDate()}</div></div>
+                        <div class="flex-grow flex items-center gap-1.5 flex-wrap min-w-0">${badge}${hol?`<span class="text-[8px] font-bold text-red-400 bg-red-50 dark:bg-red-900/30 px-1.5 rounded">${hol.name}</span>`:''}</div>
+                        <button onclick="openReminderSheet('${ds}')" class="flex-shrink-0 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-base flex items-center justify-center leading-none font-bold hover:bg-indigo-100 hover:text-indigo-600">+</button>
+                    </div>
+                    ${hasItems?`<div class="ml-8">${itemsHtml}</div>`:''}
                 </div>`;
             }
             return html+'</div>';
@@ -1431,9 +1549,10 @@
             const today = new Date(); currentDisplayYear = today.getFullYear(); currentDisplayMonth = today.getMonth();
             monthNames.forEach((m, i) => document.getElementById('displayMonth').add(new Option(m, i)));
             for(let i=-5; i<=5; i++) document.getElementById('displayYear').add(new Option(currentDisplayYear+i, currentDisplayYear+i));
-            loadFromLocalStorage(); 
+            loadFromLocalStorage();
             refreshAllUI();
-            
+            checkNotifications();
+
             await syncCloudData('LOAD');
         };
     </script>
