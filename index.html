@@ -1167,8 +1167,25 @@
             const ref = new Date(activeProfile.referenceDate); const today = new Date(); today.setHours(0,0,0,0); const cycle = activeProfile.workDays + activeProfile.restDays;
             const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
             const todayShift = activeProfile.shifts.find(x => x.id === activeProfile.assignedShifts[todayStr]);
+            const tmr = new Date(today); tmr.setDate(today.getDate()+1);
+            const tmrStr = `${tmr.getFullYear()}-${String(tmr.getMonth()+1).padStart(2,'0')}-${String(tmr.getDate()).padStart(2,'0')}`;
+            const tmrDiff = Math.round((Date.UTC(tmr.getFullYear(), tmr.getMonth(), tmr.getDate()) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()))/864e5);
+            const tmrIsFree = ((tmrDiff % cycle)+cycle)%cycle < activeProfile.restDays;
+            const tmrShift = !tmrIsFree ? activeProfile.shifts.find(x => x.id === activeProfile.assignedShifts[tmrStr]) : null;
             for(let i=0; i<90; i++) { const d = new Date(today); d.setDate(today.getDate()+i); const diff = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()))/864e5);
-                if(((diff % cycle)+cycle)%cycle < activeProfile.restDays) { let text = i===0 ? 'Hoy descansas' : (i===1 ? 'Mañana libre' : `${i} días para descansar`); if(todayShift && i>0) text += ` · Turno de hoy: ${todayShift.name}`; document.getElementById('countdown-container').textContent = text; break; }
+                if(((diff % cycle)+cycle)%cycle < activeProfile.restDays) {
+                    const el = document.getElementById('countdown-container');
+                    if (i === 0) {
+                        let extra = tmrShift ? `<span class="text-amber-400"> · Mañana: ${tmrShift.name}</span>`
+                                  : !tmrIsFree  ? `<span class="text-amber-400"> · Mañana trabajas</span>` : '';
+                        el.innerHTML = `<span>Hoy descansas</span>${extra}`;
+                    } else {
+                        let text = i===1 ? 'Mañana libre' : `${i} días para descansar`;
+                        if(todayShift) text += ` · Turno de hoy: ${todayShift.name}`;
+                        el.textContent = text;
+                    }
+                    break;
+                }
             }
         }
 
