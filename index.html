@@ -1345,13 +1345,17 @@
                 if(((diff % cycle)+cycle)%cycle < activeProfile.restDays) {
                     const el = document.getElementById('countdown-container');
                     if (i === 0) {
-                        let extra = tmrShift ? `<span class="text-amber-400"> · Mañana: ${tmrShift.name}</span>`
-                                  : !tmrIsFree  ? `<span class="text-amber-400"> · Mañana trabajas</span>` : '';
+                        let extra = tmrShift
+                            ? ` · <span class="text-[10px] text-slate-300 opacity-80">Mañana:</span> <span class="font-extrabold px-2 py-0.5 rounded-lg text-white" style="background:${tmrShift.color}">${tmrShift.name}</span>`
+                            : !tmrIsFree ? `<span class="text-amber-400"> · Mañana trabajas</span>` : '';
                         el.innerHTML = `<span>Hoy descansas</span>${extra}`;
                     } else {
-                        let text = i===1 ? 'Mañana libre' : `${i} días para descansar`;
-                        if(todayShift) text += ` · Turno de hoy: ${todayShift.name}`;
-                        el.textContent = text;
+                        const base = i===1 ? 'Mañana libre' : `${i} días para descansar`;
+                        if(todayShift) {
+                            el.innerHTML = `<span>${base}</span> · <span class="font-extrabold px-2 py-0.5 rounded-lg text-white" style="background:${todayShift.color}">${todayShift.name}</span>`;
+                        } else {
+                            el.textContent = base;
+                        }
                     }
                     break;
                 }
