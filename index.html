@@ -46,11 +46,13 @@
             position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
             border-radius: 14px; font-weight: 700; height: 12.5vw; max-height: 85px; min-height: 62px;
             font-size: clamp(0.75rem, 2.5vw, 1rem); overflow: hidden; border: 1px solid transparent;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.25);
         }
         .assigned-shift .shift-name-label, .free-day .free-day-label {
             font-size: 0.58rem; margin-top: 3px; font-weight: 800; text-align: center; width: 100%;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
             word-break: break-all; padding: 0 2px; line-height: 1;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.35);
         }
         .today { outline: 3px solid #4f46e5; outline-offset: -3px; }
         .day-selected { box-shadow: 0 0 0 2.5px #fff, 0 0 0 5px #4f46e5; z-index: 1; }
@@ -1146,7 +1148,7 @@
             let statusHtml='', statusColor='#6366f1';
             if(vacDays[dateStr]==='v15'){ statusHtml=`<span class="px-2 py-1 rounded-xl bg-amber-100 text-amber-700 font-extrabold text-[10px] uppercase">VACACIONES · 15 Hábiles</span>`; statusColor='#f59e0b'; }
             else if(vacDays[dateStr]==='v6'){ statusHtml=`<span class="px-2 py-1 rounded-xl bg-violet-100 text-violet-700 font-extrabold text-[10px] uppercase">VACACIONES · 6 Adicionales</span>`; statusColor='#8b5cf6'; }
-            else if(pos<activeProfile.restDays){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase" style="background:${activeProfile.freeDayColor}22;color:${activeProfile.freeDayColor}">LIBRE</span>`; statusColor=activeProfile.freeDayColor; }
+            else if(pos<activeProfile.restDays){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase" style="background:${activeProfile.freeDayColor};color:${getTextColorForBg(activeProfile.freeDayColor)}">LIBRE</span>`; statusColor=activeProfile.freeDayColor; }
             else{ const sid=activeProfile.assignedShifts[dateStr]; const s=activeProfile.shifts.find(x=>x.id===sid);
                 if(s){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase text-white" style="background:${s.color}">${s.name}</span>`; statusColor=s.color; }
                 else{ statusHtml=`<span class="px-2 py-1 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 font-extrabold text-[10px] uppercase">Trabajo · Sin turno</span>`; }
@@ -1605,7 +1607,7 @@
         window.onload = async () => {
             if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(r=>console.log('SW',r)).catch(e=>console.log('SW Error',e)); }
             
-            const today = new Date(); currentDisplayYear = today.getFullYear(); currentDisplayMonth = today.getMonth();
+            const today = new Date(); currentDisplayYear = today.getFullYear(); currentDisplayMonth = today.getMonth(); currentDisplayDay = today.getDate();
             monthNames.forEach((m, i) => document.getElementById('displayMonth').add(new Option(m, i)));
             for(let i=-5; i<=5; i++) document.getElementById('displayYear').add(new Option(currentDisplayYear+i, currentDisplayYear+i));
             loadFromLocalStorage();
