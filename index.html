@@ -259,8 +259,31 @@
             </div>
             <button onclick="exportToICS()" class="w-full mt-3 flex items-center justify-center gap-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-extrabold py-4 rounded-2xl text-xs uppercase border border-blue-200 dark:border-blue-800">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM7 11h5v5H7z"/></svg>
-                Exportar a Google Calendar (.ics)
+                Exportar .ics (manual)
             </button>
+        </div>
+
+        <!-- Google Calendar Sync -->
+        <div class="mt-6 pt-6 border-t dark:border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-extrabold text-slate-700 dark:text-slate-200">Google Calendar</h3>
+                <span id="gcal-status-dot" class="hidden px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Conectado</span>
+            </div>
+            <div id="gcal-connected-ui" class="hidden space-y-2">
+                <div class="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-[10px] text-green-700 dark:text-green-400 font-semibold">Sincronización automática activa. Los turnos se envían a Google Calendar al guardar.</div>
+                <div class="text-[9px] text-slate-400 text-center">Última sync: <span id="gcal-last-sync">—</span></div>
+                <button onclick="syncToGoogleCalendar(true)" class="w-full py-3 bg-blue-600 text-white font-extrabold text-[10px] rounded-xl uppercase">Sincronizar ahora</button>
+                <button onclick="disconnectGoogleCalendar()" class="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-[10px] rounded-xl uppercase">Desconectar</button>
+            </div>
+            <div id="gcal-setup-ui" class="space-y-2">
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">Para sincronizar automáticamente necesitas un <strong>Google Client ID</strong>. <button onclick="document.getElementById('gcal-help-modal').classList.remove('hidden')" class="text-blue-500 underline">¿Cómo obtenerlo?</button></p>
+                <input id="gcal-client-id-input" type="text" placeholder="xxxx.apps.googleusercontent.com" class="w-full px-3 py-3 rounded-xl text-xs bg-slate-100 dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-blue-400" />
+                <button onclick="connectGoogleCalendar()" class="w-full py-3.5 bg-white dark:bg-slate-800 border-2 border-blue-500 text-blue-600 font-extrabold text-[10px] rounded-xl uppercase flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Conectar con Google
+                </button>
+            </div>
+        </div>
         </div>
     </div>
 
@@ -706,7 +729,8 @@
             
             cloudDebounceTimer = setTimeout(() => {
                 syncCloudData('SAVE');
-            }, 2000); 
+                if(gcalAccessToken) syncToGoogleCalendar();
+            }, 2000);
         }
 
         async function syncCloudData(action) {
@@ -1203,6 +1227,182 @@
             reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if(data.profiles) { appData = data; const localId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY); activeProfile = (localId && appData.profiles.find(p => p.id === localId)) ? appData.profiles.find(p => p.id === localId) : appData.profiles[0]; refreshAllUI(); showToast("Restaurado"); saveToLocalStorage(); } } catch(err) { showToast("Archivo no válido", "error"); } }; reader.readAsText(file); e.target.value = '';
         }
 
+        // ══════════════════════════════════════════════════════
+        // GOOGLE CALENDAR — Sincronización automática
+        // ══════════════════════════════════════════════════════
+        const GCAL_API = 'https://www.googleapis.com/calendar/v3';
+        const GCAL_CAL_NAME = 'Turnos Pro';
+        let googleTokenClient = null;
+        let gcalAccessToken = null;
+        let gcalSyncPending = false;
+
+        function initGoogleCalendar() {
+            const clientId = localStorage.getItem('gcal_client_id');
+            const savedToken = localStorage.getItem('gcal_token');
+            if(clientId) document.getElementById('gcal-client-id-input').value = clientId;
+            if(savedToken) gcalAccessToken = savedToken;
+            updateGcalUI();
+            if(clientId) loadGISScript(clientId);
+        }
+
+        function loadGISScript(clientId) {
+            if(typeof google !== 'undefined' && google.accounts) { setupTokenClient(clientId); return; }
+            const s = document.createElement('script');
+            s.src = 'https://accounts.google.com/gsi/client';
+            s.async = true;
+            s.onload = () => setupTokenClient(clientId);
+            document.head.appendChild(s);
+        }
+
+        function setupTokenClient(clientId) {
+            googleTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: 'https://www.googleapis.com/auth/calendar',
+                callback: async (resp) => {
+                    if(resp.error) { showToast('Error Google: ' + resp.error, 'error'); return; }
+                    gcalAccessToken = resp.access_token;
+                    localStorage.setItem('gcal_token', gcalAccessToken);
+                    updateGcalUI();
+                    showToast('Conectado con Google Calendar');
+                    await syncToGoogleCalendar();
+                }
+            });
+            // Intento de token silencioso (sin popup si ya está autorizado)
+            if(!gcalAccessToken) googleTokenClient.requestAccessToken({prompt: ''});
+        }
+
+        function connectGoogleCalendar() {
+            const clientId = document.getElementById('gcal-client-id-input').value.trim();
+            if(!clientId || !clientId.includes('apps.googleusercontent.com')) {
+                showToast('Ingresa un Client ID válido', 'error'); return;
+            }
+            localStorage.setItem('gcal_client_id', clientId);
+            loadGISScript(clientId);
+            if(googleTokenClient) googleTokenClient.requestAccessToken({prompt: 'select_account'});
+        }
+
+        function disconnectGoogleCalendar() {
+            gcalAccessToken = null;
+            localStorage.removeItem('gcal_token');
+            localStorage.removeItem('gcal_calendar_id');
+            updateGcalUI();
+            showToast('Desconectado de Google Calendar');
+        }
+
+        function updateGcalUI() {
+            const connected = !!gcalAccessToken;
+            document.getElementById('gcal-connected-ui').classList.toggle('hidden', !connected);
+            document.getElementById('gcal-setup-ui').classList.toggle('hidden', connected);
+            document.getElementById('gcal-status-dot').classList.toggle('hidden', !connected);
+            const ls = localStorage.getItem('gcal_last_sync');
+            if(ls) document.getElementById('gcal-last-sync').textContent = ls;
+        }
+
+        async function getOrCreateGcalCalendar() {
+            // Busca calendario existente
+            const calId = localStorage.getItem('gcal_calendar_id');
+            if(calId) return calId;
+
+            // Crea uno nuevo
+            const res = await fetch(`${GCAL_API}/calendars`, {
+                method: 'POST',
+                headers: {'Authorization': `Bearer ${gcalAccessToken}`, 'Content-Type': 'application/json'},
+                body: JSON.stringify({summary: GCAL_CAL_NAME, description: 'Turnos generados por Turnos Pro', timeZone: 'America/Santiago'})
+            });
+            if(!res.ok) throw new Error('Error creando calendario: ' + res.status);
+            const cal = await res.json();
+            localStorage.setItem('gcal_calendar_id', cal.id);
+            return cal.id;
+        }
+
+        async function syncToGoogleCalendar(manual = false) {
+            if(!gcalAccessToken) { if(manual) connectGoogleCalendar(); return; }
+
+            try {
+                const calId = await getOrCreateGcalCalendar();
+
+                // Borrar todos los eventos existentes del calendario
+                let pageToken = null;
+                do {
+                    const url = `${GCAL_API}/calendars/${encodeURIComponent(calId)}/events?maxResults=250${pageToken ? '&pageToken='+pageToken : ''}`;
+                    const evRes = await fetch(url, {headers: {'Authorization': `Bearer ${gcalAccessToken}`}});
+                    if(!evRes.ok) throw new Error('token_expired');
+                    const evData = await evRes.json();
+                    pageToken = evData.nextPageToken || null;
+                    await Promise.all((evData.items||[]).map(ev =>
+                        fetch(`${GCAL_API}/calendars/${encodeURIComponent(calId)}/events/${ev.id}`, {
+                            method: 'DELETE', headers: {'Authorization': `Bearer ${gcalAccessToken}`}
+                        })
+                    ));
+                } while(pageToken);
+
+                // Generar eventos: 1 mes atrás → 8 meses adelante
+                const profile = activeProfile;
+                const ref = new Date(profile.referenceDate);
+                const cycle = profile.workDays + profile.restDays;
+                const vacDays = profile.vacationDays || {};
+                const turnosMap = {};
+                profile.shifts.forEach(s => turnosMap[s.id] = s);
+
+                const start = new Date(); start.setMonth(start.getMonth() - 1); start.setDate(1);
+                const end = new Date(); end.setMonth(end.getMonth() + 8);
+                const cur = new Date(start);
+                const events = [];
+
+                while(cur <= end) {
+                    const ds = _dateStr(cur);
+                    const diff = Math.round((Date.UTC(cur.getFullYear(),cur.getMonth(),cur.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
+                    const pos = ((diff%cycle)+cycle)%cycle;
+                    const nxt = new Date(cur); nxt.setDate(cur.getDate()+1);
+                    let summary = null, colorId = '9'; // blueberry default
+
+                    if(vacDays[ds]==='v15')     { summary='VACACIONES 15 Hábiles'; colorId='5'; }
+                    else if(vacDays[ds]==='v6') { summary='VACACIONES +6 Días'; colorId='3'; }
+                    else if(pos >= profile.restDays) {
+                        const s = turnosMap[profile.assignedShifts[ds]];
+                        summary = s ? s.name : 'Trabajo';
+                        colorId = '11';
+                    }
+
+                    if(summary) events.push({
+                        summary,
+                        start: {date: ds},
+                        end: {date: _dateStr(nxt)},
+                        colorId,
+                        source: {title: 'Turnos Pro', url: location.href}
+                    });
+                    cur.setDate(cur.getDate()+1);
+                }
+
+                // Crear eventos en lotes de 10
+                for(let i=0; i<events.length; i+=10) {
+                    await Promise.all(events.slice(i,i+10).map(ev =>
+                        fetch(`${GCAL_API}/calendars/${encodeURIComponent(calId)}/events`, {
+                            method: 'POST',
+                            headers: {'Authorization': `Bearer ${gcalAccessToken}`, 'Content-Type': 'application/json'},
+                            body: JSON.stringify(ev)
+                        })
+                    ));
+                }
+
+                const now = new Date().toLocaleTimeString('es-CL', {hour:'2-digit',minute:'2-digit'});
+                localStorage.setItem('gcal_last_sync', now);
+                document.getElementById('gcal-last-sync').textContent = now;
+                if(manual) showToast('Google Calendar sincronizado');
+
+            } catch(err) {
+                if(err.message === 'token_expired' || err.message?.includes('401')) {
+                    gcalAccessToken = null;
+                    localStorage.removeItem('gcal_token');
+                    updateGcalUI();
+                    if(googleTokenClient) googleTokenClient.requestAccessToken({prompt: ''});
+                } else {
+                    console.error('GCal sync error:', err);
+                    if(manual) showToast('Error sincronizando con Google', 'error');
+                }
+            }
+        }
+
         function exportToICS() {
             const profile = activeProfile;
             const ref = new Date(profile.referenceDate);
@@ -1666,11 +1866,31 @@
             refreshAllUI();
             checkNotifications();
             setInterval(checkNotifications, 60000);
+            initGoogleCalendar();
 
             await syncCloudData('LOAD');
         };
     </script>
     <!-- MODAL: ACERCA DE -->
+    <!-- MODAL AYUDA GOOGLE CLIENT ID -->
+    <div id="gcal-help-modal" class="hidden fixed inset-0 z-[400] bg-black/60 backdrop-blur-sm flex items-end justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-white dark:bg-slate-900 rounded-t-[2rem] w-full max-w-lg p-6 pb-10 space-y-3">
+            <div class="w-10 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-4"></div>
+            <h3 class="text-base font-extrabold dark:text-white">Cómo obtener el Google Client ID</h3>
+            <ol class="space-y-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed list-decimal pl-4">
+                <li>Ve a <strong>console.cloud.google.com</strong> e inicia sesión con tu cuenta Google</li>
+                <li>Crea un proyecto nuevo (o usa uno existente)</li>
+                <li>En el menú: <strong>APIs y Servicios → Biblioteca</strong> → busca <em>"Google Calendar API"</em> → Habilitar</li>
+                <li>Ve a <strong>APIs y Servicios → Credenciales</strong> → <em>"Crear credenciales"</em> → <em>"ID de cliente OAuth"</em></li>
+                <li>Tipo de aplicación: <strong>Aplicación web</strong></li>
+                <li>En "Orígenes de JavaScript autorizados" agrega la URL donde tienes la app</li>
+                <li>Copia el <strong>ID de cliente</strong> (termina en .apps.googleusercontent.com)</li>
+                <li>Pégalo en el campo de la app y pulsa <em>"Conectar con Google"</em></li>
+            </ol>
+            <button onclick="document.getElementById('gcal-help-modal').classList.add('hidden')" class="w-full py-3 bg-indigo-600 text-white font-extrabold rounded-2xl text-xs uppercase mt-4">Entendido</button>
+        </div>
+    </div>
+
     <div id="about-modal" class="hidden fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm flex items-end justify-center">
         <div class="bg-white dark:bg-slate-900 rounded-t-[2rem] w-full max-w-lg max-h-[88vh] flex flex-col shadow-2xl">
             <div class="w-10 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-4 flex-shrink-0"></div>
