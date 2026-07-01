@@ -1053,6 +1053,16 @@
             });
         }
 
+        function shiftTimeStr(s) {
+            if(!s || !s.startTime || !s.endTime) return '';
+            return `${s.startTime}–${s.endTime}`;
+        }
+        function shiftHoursStr(s) {
+            if(!s) return '';
+            const r = calcShiftHours(s.startTime, s.endTime);
+            return r ? r.label : '';
+        }
+
         function calcShiftHours(start, end) {
             if(!start || !end) return null;
             const [sh, sm] = start.split(':').map(Number);
@@ -1161,7 +1171,7 @@
                     label = "LIBRE"; cls += " free-day";
                 } else {
                     cls += " work-day"; const sid = activeProfile.assignedShifts[dateStr]; const s = activeProfile.shifts.find(x => x.id === sid);
-                    if(s) { style = `style="background-color: ${s.color}; color: ${getTextColorForBg(s.color)}; border-color: ${s.color}"`; label = s.name; cls += " assigned-shift"; }
+                    if(s) { style = `style="background-color: ${s.color}; color: ${getTextColorForBg(s.color)}; border-color: ${s.color}"`; const ts=shiftTimeStr(s); label = s.name+(ts?`<span style="display:block;font-size:0.48rem;opacity:0.88;margin-top:1px">${ts}</span>`:''); cls += " assigned-shift"; }
                     else { cls += " bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 cursor-pointer shadow-sm"; }
                 }
                 if(d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()) cls += " today";
@@ -1201,7 +1211,9 @@
             else if(vacDays[dateStr]==='v6'){ statusHtml=`<span class="px-2 py-1 rounded-xl bg-violet-100 text-violet-700 font-extrabold text-[10px] uppercase">VACACIONES · 6 Adicionales</span>`; statusColor='#8b5cf6'; }
             else if(pos<activeProfile.restDays){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase" style="background:${activeProfile.freeDayColor};color:${getTextColorForBg(activeProfile.freeDayColor)}">LIBRE</span>`; statusColor=activeProfile.freeDayColor; }
             else{ const sid=activeProfile.assignedShifts[dateStr]; const s=activeProfile.shifts.find(x=>x.id===sid);
-                if(s){ statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase text-white" style="background:${s.color}">${s.name}</span>`; statusColor=s.color; }
+                if(s){ const ts=shiftTimeStr(s); const hs=shiftHoursStr(s);
+                    statusHtml=`<span class="px-2 py-1 rounded-xl font-extrabold text-[10px] uppercase text-white" style="background:${s.color}">${s.name}${ts?` · ${ts}`:''}</span>${hs?`<span class="text-[9px] text-slate-400 ml-1">${hs}</span>`:''}`;
+                    statusColor=s.color; }
                 else{ statusHtml=`<span class="px-2 py-1 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 font-extrabold text-[10px] uppercase">Trabajo · Sin turno</span>`; }
             }
             const holHtml = hol ? `<div class="flex items-center gap-1.5 mt-2"><div class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 shadow-[0_0_4px_#f87171]"></div><span class="text-[10px] font-bold text-red-500">${hol.name} <span class="font-normal text-red-400">— ${hol.desc}</span></span></div>` : '';
@@ -1514,7 +1526,9 @@
                 else if(vacDays[ds]==='v6'){ chip=`<span class="px-2 py-0.5 rounded-lg bg-violet-100 text-violet-700 font-extrabold text-[9px]">+6 DÍAS</span>`; bar='#8b5cf6'; }
                 else if(pos<activeProfile.restDays){ chip=`<span class="px-2 py-0.5 rounded-lg font-extrabold text-[9px]" style="background:${activeProfile.freeDayColor}22;color:${activeProfile.freeDayColor}">LIBRE</span>`; bar=activeProfile.freeDayColor; }
                 else{ const sid=activeProfile.assignedShifts[ds]; const s=activeProfile.shifts.find(x=>x.id===sid);
-                    if(s){ chip=`<span class="px-2 py-0.5 rounded-lg font-extrabold text-[9px] text-white" style="background:${s.color}">${s.name}</span>`; bar=s.color; }
+                    if(s){ const ts=shiftTimeStr(s); const hs=shiftHoursStr(s);
+                        chip=`<span class="px-2 py-0.5 rounded-lg font-extrabold text-[9px] text-white" style="background:${s.color}">${s.name}${ts?' · '+ts:''}</span>${hs?`<span class="text-[8px] text-slate-400">${hs}</span>`:''}`;
+                        bar=s.color; }
                     else{ chip=`<span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400 font-extrabold text-[9px]">TRABAJO</span>`; bar='#94a3b8'; }
                 }
                 let agendaHtml='';
@@ -1554,7 +1568,8 @@
             else if(vacDays[ds]==='v6'){ statusHtml=`<div class="text-center p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/20"><div class="text-2xl font-extrabold text-violet-700">VACACIONES</div><div class="text-xs text-violet-600 mt-1">6 Días Adicionales</div></div>`; }
             else if(pos<activeProfile.restDays){ statusHtml=`<div class="text-center p-4 rounded-2xl" style="background:${activeProfile.freeDayColor}18"><div class="text-3xl font-extrabold" style="color:${activeProfile.freeDayColor}">LIBRE</div><div class="text-xs font-bold mt-1 opacity-60" style="color:${activeProfile.freeDayColor}">Día de descanso</div></div>`; }
             else{ const sid=activeProfile.assignedShifts[ds]; const s=activeProfile.shifts.find(x=>x.id===sid);
-                if(s){ statusHtml=`<div class="text-center p-4 rounded-2xl text-white" style="background:${s.color}"><div class="text-xl font-extrabold">${s.name}</div><div class="text-xs font-bold mt-1 opacity-70">Turno asignado</div></div>`; }
+                if(s){ const ts=shiftTimeStr(s); const hs=shiftHoursStr(s);
+                    statusHtml=`<div class="text-center p-4 rounded-2xl text-white" style="background:${s.color}"><div class="text-xl font-extrabold">${s.name}</div>${ts?`<div class="text-sm font-bold mt-1 opacity-90">${ts}</div>`:''}${hs?`<div class="text-[10px] font-bold mt-0.5 opacity-70">${hs} de trabajo</div>`:''}</div>`; }
                 else{ statusHtml=`<div onclick="openModal('${ds}')" class="text-center p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 cursor-pointer"><div class="text-xl font-extrabold text-slate-600 dark:text-slate-300">DÍA DE TRABAJO</div><div class="text-xs text-slate-400 mt-1">Toca para asignar turno</div></div>`; }
             }
             const holHtml=hol?`<div class="p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 flex items-start gap-3"><div class="w-2 h-2 rounded-full bg-red-400 mt-1 flex-shrink-0 shadow-[0_0_4px_#f87171]"></div><div><div class="font-extrabold text-red-600 text-xs uppercase">${hol.name}</div><div class="text-[10px] text-red-400 mt-0.5">${hol.desc}</div></div></div>`:'';
@@ -1668,7 +1683,9 @@
                 else if(vacDays[ds]==='v6'){ badge=`<span class="text-violet-600 text-[9px] font-bold">+6 DÍAS</span>`; dot='#8b5cf6'; }
                 else if(pos<activeProfile.restDays){ badge=`<span class="text-[9px] font-bold" style="color:${activeProfile.freeDayColor}">LIBRE</span>`; dot=activeProfile.freeDayColor; }
                 else{ const sid=activeProfile.assignedShifts[ds]; const s=activeProfile.shifts.find(x=>x.id===sid);
-                    if(s){ badge=`<span class="text-[9px] font-bold text-white px-1.5 py-0.5 rounded" style="background:${s.color}">${s.name}</span>`; dot=s.color; }
+                    if(s){ const ts=shiftTimeStr(s); const hs=shiftHoursStr(s);
+                        badge=`<span class="text-[9px] font-bold text-white px-1.5 py-0.5 rounded" style="background:${s.color}">${s.name}</span>${ts?`<span class="text-[8px] text-slate-500 dark:text-slate-400">${ts}</span>`:''}${hs?`<span class="text-[8px] text-slate-400">(${hs})</span>`:''}`;
+                        dot=s.color; }
                     else{ badge=`<span class="text-[9px] font-bold text-slate-400">TRABAJO</span>`; }
                 }
                 let itemsHtml='';
