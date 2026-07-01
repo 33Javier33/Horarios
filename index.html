@@ -230,7 +230,21 @@
         <div id="shift-list" class="space-y-3 mb-6"></div>
         <div class="p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl space-y-4">
             <input type="hidden" id="shift-id">
-            <input type="text" id="shift-name" placeholder="Ej: 17:30 - 01:30" class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border-none text-sm">
+            <input type="text" id="shift-name" placeholder="Nombre del turno (ej: Tarde)" class="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border-none text-sm dark:text-white">
+            <div>
+                <p class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Horario <span class="font-normal normal-case">(opcional)</span></p>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[9px] text-slate-400 mb-1 block">Entrada</label>
+                        <input type="time" id="shift-start-time" oninput="updateShiftHoursPreview()" class="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm dark:text-white focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-slate-400 mb-1 block">Salida</label>
+                        <input type="time" id="shift-end-time" oninput="updateShiftHoursPreview()" class="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm dark:text-white focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <p id="shift-hours-preview" class="text-[10px] text-indigo-500 font-bold mt-1.5 text-center hidden"></p>
+            </div>
             <input type="color" id="shift-color" value="#4f46e5" class="w-full h-8 bg-transparent border-none cursor-pointer">
             <button id="save-shift-btn" onclick="saveShift()" class="w-full bg-emerald-500 text-white font-extrabold py-3 rounded-xl text-xs uppercase">Añadir Turno</button>
             <button id="cancel-edit-btn" onclick="cancelEdit()" class="w-full bg-slate-400 text-white font-bold py-2 rounded-xl text-xs hidden uppercase">Cancelar</button>
@@ -1019,11 +1033,13 @@
                 const el = document.createElement('div');
                 el.className = 'draggable-item flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm';
                 el.dataset.id = s.id;
+                const hrs = calcShiftHours(s.startTime, s.endTime);
+                const timeLabel = s.startTime && s.endTime ? `<span class="text-[9px] text-slate-400">${s.startTime}–${s.endTime}${hrs?' · '+hrs.label:''}</span>` : '';
                 el.innerHTML = `
                     <div class="drag-handle"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></div>
                     <div class="flex items-center gap-3 flex-grow px-3 pointer-events-none">
-                        <span class="w-4 h-4 rounded-full" style="background-color:${s.color}"></span>
-                        <span class="text-xs font-extrabold dark:text-gray-200 uppercase">${s.name}</span>
+                        <span class="w-4 h-4 rounded-full flex-shrink-0" style="background-color:${s.color}"></span>
+                        <div><div class="text-xs font-extrabold dark:text-gray-200 uppercase">${s.name}</div>${timeLabel}</div>
                     </div>
                     <div class="flex gap-4">
                         <button onclick="editShift('${s.id}')" class="text-indigo-500 text-[10px] font-extrabold uppercase italic">Editar</button>
@@ -1037,13 +1053,38 @@
             });
         }
 
+        function calcShiftHours(start, end) {
+            if(!start || !end) return null;
+            const [sh, sm] = start.split(':').map(Number);
+            const [eh, em] = end.split(':').map(Number);
+            const startMin = sh*60+sm, endMin = eh*60+em;
+            const dur = endMin > startMin ? endMin-startMin : (1440-startMin)+endMin;
+            const h = Math.floor(dur/60), m = dur%60;
+            return { hours: h, minutes: m, label: m ? `${h}h ${m}m` : `${h}h` };
+        }
+
+        function updateShiftHoursPreview() {
+            const s = document.getElementById('shift-start-time').value;
+            const e = document.getElementById('shift-end-time').value;
+            const p = document.getElementById('shift-hours-preview');
+            const r = calcShiftHours(s, e);
+            if(r) { p.textContent = `Total: ${r.label} trabajadas`; p.classList.remove('hidden'); }
+            else p.classList.add('hidden');
+        }
+
         function saveShift() {
             const id = document.getElementById('shift-id').value;
             const name = document.getElementById('shift-name').value.trim();
             const color = document.getElementById('shift-color').value;
+            const startTime = document.getElementById('shift-start-time').value || null;
+            const endTime = document.getElementById('shift-end-time').value || null;
             if(!name) return;
-            if(id) { const s = activeProfile.shifts.find(x => x.id === id); s.name = name; s.color = color; }
-            else { activeProfile.shifts.push({ id: crypto.randomUUID(), name, color }); }
+            if(id) {
+                const s = activeProfile.shifts.find(x => x.id === id);
+                s.name = name; s.color = color; s.startTime = startTime; s.endTime = endTime;
+            } else {
+                activeProfile.shifts.push({ id: crypto.randomUUID(), name, color, startTime, endTime });
+            }
             saveToLocalStorage(); refreshAllUI(); cancelEdit();
         }
 
@@ -1052,6 +1093,9 @@
             document.getElementById('shift-id').value = s.id;
             document.getElementById('shift-name').value = s.name;
             document.getElementById('shift-color').value = s.color;
+            document.getElementById('shift-start-time').value = s.startTime || '';
+            document.getElementById('shift-end-time').value = s.endTime || '';
+            updateShiftHoursPreview();
             document.getElementById('save-shift-btn').textContent = 'Guardar Cambios';
             document.getElementById('cancel-edit-btn').classList.remove('hidden');
         }
@@ -1059,6 +1103,9 @@
         function cancelEdit() {
             document.getElementById('shift-id').value = '';
             document.getElementById('shift-name').value = '';
+            document.getElementById('shift-start-time').value = '';
+            document.getElementById('shift-end-time').value = '';
+            document.getElementById('shift-hours-preview').classList.add('hidden');
             document.getElementById('save-shift-btn').textContent = 'Añadir Turno';
             document.getElementById('cancel-edit-btn').classList.add('hidden');
         }
@@ -1211,36 +1258,55 @@
             const turnosMap = {};
             profile.shifts.forEach(s => turnosMap[s.id] = s);
 
-            // Rango: 6 meses atrás hasta 18 meses adelante
             const start = new Date(); start.setMonth(start.getMonth() - 6); start.setDate(1);
             const end = new Date(); end.setMonth(end.getMonth() + 18); end.setDate(1);
 
             const esc = s => s.replace(/[\\;,\n]/g, m => '\\'+m);
+            const pad2 = n => String(n).padStart(2,'0');
             let vevents = [];
             const cur = new Date(start);
 
             while(cur <= end) {
                 const ds = _dateStr(cur);
-                const diff = Math.round((Date.UTC(cur.getFullYear(), cur.getMonth(), cur.getDate()) - Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate())) / 864e5);
-                const pos = ((diff % cycle) + cycle) % cycle;
+                const diff = Math.round((Date.UTC(cur.getFullYear(),cur.getMonth(),cur.getDate())-Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate()))/864e5);
+                const pos = ((diff%cycle)+cycle)%cycle;
                 const isFree = pos < profile.restDays;
-                const dtS = ds.replace(/-/g,'');
+                const dtBase = ds.replace(/-/g,'');
                 const nxt = new Date(cur); nxt.setDate(cur.getDate()+1);
-                const dtE = _dateStr(nxt).replace(/-/g,'');
-                let summary = null, desc = '';
+                const dtBaseNxt = _dateStr(nxt).replace(/-/g,'');
+                const uid = `${ds}-${profile.id}@turnospro`;
 
-                if(vacDays[ds] === 'v15')     { summary = 'VACACIONES - 15 Hábiles'; }
-                else if(vacDays[ds] === 'v6') { summary = 'VACACIONES - +6 Días'; }
+                let summary = null, dtStart = null, dtEnd = null, desc = '';
+
+                if(vacDays[ds]==='v15')      { summary='VACACIONES - 15 Hábiles'; dtStart=`DTSTART;VALUE=DATE:${dtBase}`; dtEnd=`DTEND;VALUE=DATE:${dtBaseNxt}`; }
+                else if(vacDays[ds]==='v6')  { summary='VACACIONES - +6 Días'; dtStart=`DTSTART;VALUE=DATE:${dtBase}`; dtEnd=`DTEND;VALUE=DATE:${dtBaseNxt}`; }
                 else if(!isFree) {
                     const s = turnosMap[profile.assignedShifts[ds]];
-                    summary = s ? `Turno: ${s.name}` : 'Día de Trabajo';
-                    if(s) desc = s.name;
+                    const label = s ? s.name : 'Trabajo';
+                    const hrs = s ? calcShiftHours(s.startTime, s.endTime) : null;
+                    summary = label + (hrs ? ` (${hrs.label})` : '');
+                    if(s && s.startTime && s.endTime) {
+                        // Evento con hora exacta
+                        const stParts = s.startTime.split(':');
+                        const enParts = s.endTime.split(':');
+                        const stMin = parseInt(stParts[0])*60+parseInt(stParts[1]);
+                        const enMin = parseInt(enParts[0])*60+parseInt(enParts[1]);
+                        const endDate = enMin < stMin ? dtBaseNxt : dtBase; // cruza medianoche
+                        dtStart = `DTSTART:${dtBase}T${pad2(stParts[0])}${pad2(stParts[1])}00`;
+                        dtEnd   = `DTEND:${endDate}T${pad2(enParts[0])}${pad2(enParts[1])}00`;
+                        desc = s.startTime + ' – ' + s.endTime;
+                    } else {
+                        dtStart = `DTSTART;VALUE=DATE:${dtBase}`;
+                        dtEnd   = `DTEND;VALUE=DATE:${dtBaseNxt}`;
+                    }
+                } else {
+                    // Día libre
+                    summary = 'LIBRE';
+                    dtStart = `DTSTART;VALUE=DATE:${dtBase}`;
+                    dtEnd   = `DTEND;VALUE=DATE:${dtBaseNxt}`;
                 }
 
-                if(summary) {
-                    const uid = `${ds}-${profile.id}@turnospro`;
-                    vevents.push(`BEGIN:VEVENT\r\nUID:${uid}\r\nDTSTART;VALUE=DATE:${dtS}\r\nDTEND;VALUE=DATE:${dtE}\r\nSUMMARY:${esc(summary)}\r\nDESCRIPTION:${esc(desc)}\r\nEND:VEVENT`);
-                }
+                if(summary) vevents.push(`BEGIN:VEVENT\r\nUID:${uid}\r\n${dtStart}\r\n${dtEnd}\r\nSUMMARY:${esc(summary)}\r\nDESCRIPTION:${esc(desc)}\r\nEND:VEVENT`);
                 cur.setDate(cur.getDate()+1);
             }
 
