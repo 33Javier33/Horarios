@@ -1655,6 +1655,47 @@
                 });
             });
             if(changed) saveToLocalStorage();
+
+            // Shift-end notification: when today's shift ends, notify about next shift
+            appData.profiles.forEach(profile => {
+                if(!profile.referenceDate) return;
+                const ref = new Date(profile.referenceDate);
+                const cycle = (profile.workDays||6) + (profile.restDays||2);
+                const todayD = new Date(); todayD.setHours(0,0,0,0);
+                const diff = Math.round((Date.UTC(todayD.getFullYear(),todayD.getMonth(),todayD.getDate()) - Date.UTC(ref.getUTCFullYear(),ref.getUTCMonth(),ref.getUTCDate())) / 864e5);
+                const pos = ((diff % cycle) + cycle) % cycle;
+                const isRest = pos < (profile.restDays||2);
+                if(isRest) return;
+                const vacDays = profile.vacationDays||{};
+                if(vacDays[todayS] === 'v15' || vacDays[todayS] === 'v6') return;
+                const sid = profile.assignedShifts[todayS];
+                const todayShift = profile.shifts.find(x => x.id === sid);
+                if(!todayShift || !todayShift.endTime || todayShift.endTime !== currentHHMM) return;
+                const notifKey = `shiftEndNotified_${todayS}_${profile.id}`;
+                if(localStorage.getItem(notifKey)) return;
+                // Determine tomorrow's shift
+                const tmrDiff = diff + 1;
+                const tmrPos = ((tmrDiff % cycle) + cycle) % cycle;
+                const tmrIsRest = tmrPos < (profile.restDays||2);
+                const tmrVac = vacDays[tmrS];
+                let nextMsg;
+                if(tmrVac === 'v15' || tmrVac === 'v6') {
+                    nextMsg = tmrVac === 'v15' ? 'Mañana: Vacaciones' : 'Mañana: Días extra (+6)';
+                } else if(tmrIsRest) {
+                    nextMsg = 'Mañana descansas 🎉';
+                } else {
+                    const tmrSid = profile.assignedShifts[tmrS];
+                    const tmrShift = profile.shifts.find(x => x.id === tmrSid);
+                    if(tmrShift) {
+                        const ts = shiftTimeStr(tmrShift);
+                        nextMsg = `Mañana: ${tmrShift.name}${ts ? ' · ' + ts : ''}`;
+                    } else {
+                        nextMsg = 'Mañana trabajas';
+                    }
+                }
+                new Notification(`Turno finalizado · ${profile.name}`, {body: nextMsg, icon:'./icons/icon-192x192.png'});
+                localStorage.setItem(notifKey, '1');
+            });
         }
 
         function createAgendaCalendar() {
