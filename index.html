@@ -1257,7 +1257,13 @@
         function saveNote() { activeProfile.notes[selectedDateForAssignment] = document.getElementById('note-textarea').value; saveToLocalStorage(); document.getElementById('shiftModal').classList.add('hidden'); renderCurrentCalendar(); }
         function removeShiftAssignment() { delete activeProfile.assignedShifts[selectedDateForAssignment]; saveToLocalStorage(); document.getElementById('shiftModal').classList.add('hidden'); refreshAllUI(); }
         
-        function backupData() { const blob = new Blob([JSON.stringify(appData, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Copia_Turnos.json`; a.click(); }
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        function backupData() { triggerDownload(new Blob([JSON.stringify(appData, null, 2)], {type: 'application/json'}), 'Copia_Turnos.json'); }
         function restoreData(e) { const file = e.target.files[0]; if(!file || !confirm("⚠️ ¿Restaurar copia local?")) return; const reader = new FileReader();
             reader.onload = (ev) => { try { const data = JSON.parse(ev.target.result); if(data.profiles) { appData = data; const localId = localStorage.getItem(LOCAL_ACTIVE_PROFILE_KEY); activeProfile = (localId && appData.profiles.find(p => p.id === localId)) ? appData.profiles.find(p => p.id === localId) : appData.profiles[0]; refreshAllUI(); showToast("Restaurado"); saveToLocalStorage(); } } catch(err) { showToast("Archivo no válido", "error"); } }; reader.readAsText(file); e.target.value = '';
         }
@@ -1324,8 +1330,7 @@
 
             const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Turnos Pro//ES\r\nCALSCALE:GREGORIAN\r\nX-WR-CALNAME:Turnos ${profile.name}\r\n${vevents.join('\r\n')}\r\nEND:VCALENDAR`;
             const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = `Turnos_${profile.name}.ics`; a.click();
+            triggerDownload(blob, `Turnos_${profile.name}.ics`);
             showToast('Archivo .ics listo — ábrelo para importar a Google Calendar');
         }
 
@@ -1335,7 +1340,7 @@
                 const sid = activeProfile.assignedShifts[date]; const s = activeProfile.shifts.find(x => x.id === sid);
                 csv += `${date},${dayNamesFull[dateObj.getDay()]},${s ? 'Trabajo':'Libre'},${s ? s.name : ''},"${activeProfile.notes[date] || ''}"\n`;
             }
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' })); a.download = `Horario.csv`; a.click();
+            triggerDownload(new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' }), 'Horario.csv');
         }
 
         async function exportToPDF() {
