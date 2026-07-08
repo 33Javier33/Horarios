@@ -1789,7 +1789,23 @@
             loadFromLocalStorage();
             refreshAllUI();
             checkNotifications();
-            setInterval(checkNotifications, 60000);
+            setInterval(() => {
+                const n = new Date();
+                if(n.getDate() !== currentDisplayDay || n.getMonth() !== currentDisplayMonth || n.getFullYear() !== currentDisplayYear) {
+                    currentDisplayYear = n.getFullYear(); currentDisplayMonth = n.getMonth(); currentDisplayDay = n.getDate();
+                    refreshAllUI();
+                }
+                checkNotifications();
+            }, 60000);
+            document.addEventListener('visibilitychange', () => {
+                if(document.visibilityState !== 'visible') return;
+                const n = new Date();
+                if(n.getDate() !== currentDisplayDay || n.getMonth() !== currentDisplayMonth || n.getFullYear() !== currentDisplayYear) {
+                    currentDisplayYear = n.getFullYear(); currentDisplayMonth = n.getMonth(); currentDisplayDay = n.getDate();
+                    refreshAllUI();
+                }
+                checkNotifications();
+            });
             await syncCloudData('LOAD');
         };
     </script>

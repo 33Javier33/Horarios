@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turnos-pro-v17';
+const CACHE_NAME = 'turnos-pro-v18';
 const ASSETS = [
   './',
   './index.html',
