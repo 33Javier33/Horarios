@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Registro Niñera</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: #f8fafc; overscroll-behavior: none; }
+        .dark body { background: #020617; }
+        .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; max-height: 90vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 20px 20px 40px; z-index: 50; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); }
+        .bottom-sheet.open { transform: translateY(0); }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .overlay.show { opacity: 1; pointer-events: auto; }
+        .day-cell { position: relative; aspect-ratio: 1; border-radius: 14px; border: 1.5px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 13px; font-weight: 700; overflow: hidden; }
+        .day-cell:active { transform: scale(0.93); }
+        .day-cell.today { border-color: #6366f1 !important; }
+        .day-cell.worked { background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: #10b981; }
+        .day-cell.worked.paid { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border-color: #6366f1; }
+        .day-cell.not-worked { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .dark .day-cell.not-worked { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+        .day-cell.empty-day { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
+        .dark .day-cell.empty-day { background: #1e293b; color: #475569; border-color: #334155; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .input-field { width: 100%; padding: 14px 16px; border-radius: 16px; background: #f1f5f9; border: none; font-family: inherit; font-size: 15px; font-weight: 600; outline: none; }
+        .dark .input-field { background: #1e293b; color: #f1f5f9; }
+        .toggle-btn { flex: 1; padding: 12px; border-radius: 14px; font-weight: 800; font-size: 13px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- OVERLAY -->
+<div id="overlay" class="overlay" onclick="closeSheet()"></div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<!-- APP -->
+<div class="max-w-md mx-auto min-h-screen flex flex-col pb-6">
+
+    <!-- HEADER -->
+    <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Registro Niñera</h1>
+                <p id="monthLabel" class="text-sm font-semibold text-slate-400 dark:text-slate-500"></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-lg">☀️</button>
+                <button onclick="openSettings()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-lg">⚙️</button>
+            </div>
+        </div>
+
+        <!-- RESUMEN -->
+        <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-3 text-center">
+                <div id="summaryDays" class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">0</div>
+                <div class="text-[10px] font-bold text-emerald-500 uppercase">Días trabajados</div>
+            </div>
+            <div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-3 text-center">
+                <div id="summaryPending" class="text-2xl font-extrabold text-amber-600 dark:text-amber-400">$0</div>
+                <div class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
+            </div>
+            <div class="bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl p-3 text-center">
+                <div id="summaryPaid" class="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400">$0</div>
+                <div class="text-[10px] font-bold text-indigo-500 uppercase">Pagado</div>
+            </div>
+        </div>
+
+        <!-- NAV MES -->
+        <div class="flex items-center justify-between">
+            <button onclick="changeMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-lg">‹</button>
+            <button onclick="goToday()" class="px-4 py-1.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-extrabold uppercase">Hoy</button>
+            <button onclick="changeMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-lg">›</button>
+        </div>
+    </div>
+
+    <!-- CALENDARIO -->
+    <div class="px-4 mt-4">
+        <!-- Días semana -->
+        <div class="calendar-grid mb-2">
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Lun</div>
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Mar</div>
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Mié</div>
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Jue</div>
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Vie</div>
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Sáb</div>
+            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Dom</div>
+        </div>
+        <div id="calGrid" class="calendar-grid"></div>
+    </div>
+
+    <!-- LEYENDA -->
+    <div class="px-4 mt-4 flex items-center gap-4 flex-wrap">
+        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-emerald-500"></div><span class="text-[11px] font-semibold text-slate-400">Trabajó (pendiente)</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-indigo-500"></div><span class="text-[11px] font-semibold text-slate-400">Trabajó (pagado)</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-red-300"></div><span class="text-[11px] font-semibold text-slate-400">No trabajó</span></div>
+    </div>
+
+    <!-- HISTORIAL PAGOS -->
+    <div class="px-4 mt-5">
+        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Pagos del mes</p>
+        <div id="paymentList" class="space-y-2"></div>
+    </div>
+
+</div>
+
+<!-- SHEET: REGISTRAR DÍA -->
+<div id="sheet-day" class="bottom-sheet bg-white dark:bg-slate-900 shadow-2xl">
+    <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-5"></div>
+    <h3 id="sheetDayTitle" class="text-lg font-extrabold text-slate-800 dark:text-white mb-5"></h3>
+
+    <!-- Toggle trabajó / no trabajó -->
+    <div class="flex gap-2 mb-5">
+        <div id="btnWorked" class="toggle-btn bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" onclick="setWorked(true)">✅ Trabajó</div>
+        <div id="btnNotWorked" class="toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-500" onclick="setWorked(false)">❌ No trabajó</div>
+    </div>
+
+    <!-- Campos (visibles solo si trabajó) -->
+    <div id="workedFields" class="space-y-3">
+        <div>
+            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Monto</label>
+            <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                <input type="number" id="inputAmount" class="input-field pl-8" placeholder="0" oninput="updateTotal()">
+            </div>
+        </div>
+        <div>
+            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Quién pagó</label>
+            <select id="inputPaidBy" class="input-field">
+                <option value="">Sin pago aún</option>
+            </select>
+        </div>
+        <div>
+            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nota (opcional)</label>
+            <input type="text" id="inputNote" class="input-field" placeholder="Ej: llegó tarde, horas extra...">
+        </div>
+        <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
+            <span class="font-extrabold text-sm text-slate-700 dark:text-slate-200">¿Ya pagado?</span>
+            <button id="paidToggle" onclick="togglePaid()" class="w-12 h-6 rounded-full bg-slate-300 dark:bg-slate-600 relative transition-colors duration-200">
+                <div id="paidThumb" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></div>
+            </button>
+        </div>
+    </div>
+
+    <div class="flex gap-2 mt-5">
+        <button onclick="clearDay()" class="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-500 font-extrabold rounded-2xl text-sm">Borrar</button>
+        <button onclick="saveDay()" class="flex-2 flex-[2] py-3 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar</button>
+    </div>
+</div>
+
+<!-- SHEET: CONFIGURACIÓN -->
+<div id="sheet-settings" class="bottom-sheet bg-white dark:bg-slate-900 shadow-2xl">
+    <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-5"></div>
+    <h3 class="text-lg font-extrabold text-slate-800 dark:text-white mb-5">Configuración</h3>
+
+    <div class="space-y-4">
+        <div>
+            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Tarifa diaria por defecto</label>
+            <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                <input type="number" id="settingRate" class="input-field pl-8" placeholder="0">
+            </div>
+        </div>
+        <div>
+            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nombre de la trabajadora</label>
+            <input type="text" id="settingName" class="input-field" placeholder="Ej: María">
+        </div>
+        <div>
+            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Quiénes pueden pagar (uno por línea)</label>
+            <textarea id="settingPayers" class="input-field" rows="3" style="resize:none" placeholder="Javier&#10;Pareja"></textarea>
+        </div>
+    </div>
+
+    <div class="flex gap-2 mt-5">
+        <button onclick="closeSheet()" class="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-extrabold rounded-2xl text-sm">Cancelar</button>
+        <button onclick="saveSettings()" class="flex-[2] py-3 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar</button>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+        <button onclick="backupData()" class="flex-1 py-3 bg-slate-800 text-white font-extrabold rounded-2xl text-xs uppercase">Copia JSON</button>
+        <label class="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 font-extrabold rounded-2xl text-xs uppercase text-center cursor-pointer">
+            Restaurar
+            <input type="file" accept=".json" class="hidden" onchange="restoreData(event)">
+        </label>
+    </div>
+</div>
+
+<script>
+    // ═══════════════════════════════════
+    // ESTADO
+    // ═══════════════════════════════════
+    let appData = { settings: { rate: 0, workerName: 'Niñera', payers: ['Papá', 'Mamá'] }, entries: {} };
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let selectedDate = null;
+    let editWorked = true;
+    let editPaid = false;
+    let activeSheet = null;
+
+    const STORAGE_KEY = 'ninera_registro_v1';
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+    // ═══════════════════════════════════
+    // STORAGE
+    // ═══════════════════════════════════
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
+    function load() {
+        const s = localStorage.getItem(STORAGE_KEY);
+        if(s) { try { appData = JSON.parse(s); } catch(e) {} }
+        if(!appData.settings) appData.settings = { rate: 0, workerName: 'Niñera', payers: ['Papá', 'Mamá'] };
+        if(!appData.entries) appData.entries = {};
+    }
+
+    // ═══════════════════════════════════
+    // DARK MODE
+    // ═══════════════════════════════════
+    function initDark() {
+        if(localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    }
+    function toggleDark() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.theme = isDark ? 'dark' : 'light';
+    }
+
+    // ═══════════════════════════════════
+    // CALENDARIO
+    // ═══════════════════════════════════
+    function renderCalendar() {
+        document.getElementById('monthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+        const grid = document.getElementById('calGrid');
+        const today = new Date();
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+        const startOffset = (firstDay.getDay() + 6) % 7; // Lun=0
+        let html = '';
+
+        for(let i = 0; i < startOffset; i++) html += `<div></div>`;
+
+        for(let d = 1; d <= lastDay.getDate(); d++) {
+            const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const entry = appData.entries[dateStr];
+            const isToday = today.getDate()===d && today.getMonth()===currentMonth && today.getFullYear()===currentYear;
+            let cls = 'day-cell ', inner = `<span class="text-sm font-extrabold">${d}</span>`;
+
+            if(entry) {
+                if(entry.worked) {
+                    cls += entry.isPaid ? 'worked paid' : 'worked';
+                    const amt = entry.amount ? `<span style="font-size:9px;font-weight:800;opacity:0.88;margin-top:1px">${fmtCompact(entry.amount)}</span>` : '';
+                    inner = `<span class="text-sm font-extrabold">${d}</span>${amt}`;
+                } else {
+                    cls += 'not-worked';
+                }
+            } else {
+                cls += 'empty-day';
+            }
+            if(isToday) cls += ' today';
+            html += `<div class="${cls}" onclick="openDay('${dateStr}')">${inner}</div>`;
+        }
+        grid.innerHTML = html;
+        renderSummary();
+        renderPaymentList();
+    }
+
+    function fmtCompact(n) {
+        if(n >= 1000000) return '$'+(n/1000000).toFixed(1)+'M';
+        if(n >= 1000) return '$'+(n/1000).toFixed(0)+'k';
+        return '$'+n;
+    }
+    function fmt(n) { return '$' + Number(n||0).toLocaleString('es-CL'); }
+
+    function renderSummary() {
+        const prefix = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
+        let days = 0, pending = 0, paid = 0;
+        Object.entries(appData.entries).forEach(([k, e]) => {
+            if(!k.startsWith(prefix) || !e.worked) return;
+            days++;
+            if(e.isPaid) paid += (e.amount||0);
+            else pending += (e.amount||0);
+        });
+        document.getElementById('summaryDays').textContent = days;
+        document.getElementById('summaryPending').textContent = fmt(pending);
+        document.getElementById('summaryPaid').textContent = fmt(paid);
+    }
+
+    function renderPaymentList() {
+        const prefix = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
+        const entries = Object.entries(appData.entries)
+            .filter(([k, e]) => k.startsWith(prefix) && e.worked)
+            .sort(([a],[b]) => a.localeCompare(b));
+
+        if(!entries.length) {
+            document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-300 dark:text-slate-600 py-4">Sin registros este mes</div>`;
+            return;
+        }
+
+        const dN = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        document.getElementById('paymentList').innerHTML = entries.map(([dateStr, e]) => {
+            const d = new Date(dateStr+'T00:00:00');
+            const dayName = dN[d.getDay()];
+            const dayNum = d.getDate();
+            const statusColor = e.isPaid ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300';
+            const statusLabel = e.isPaid ? `Pagado por ${e.paidBy||'—'}` : 'Pendiente';
+            return `<div onclick="openDay('${dateStr}')" class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex flex-col items-center justify-center shrink-0">
+                    <span class="text-[9px] font-extrabold text-slate-400 uppercase">${dayName}</span>
+                    <span class="text-base font-extrabold text-slate-700 dark:text-slate-100 leading-none">${dayNum}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</div>
+                    ${e.note ? `<div class="text-[11px] text-slate-400 truncate">${e.note}</div>` : ''}
+                </div>
+                <span class="text-[10px] font-extrabold px-2 py-1 rounded-full ${statusColor}">${statusLabel}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function changeMonth(dir) {
+        currentMonth += dir;
+        if(currentMonth < 0) { currentMonth = 11; currentYear--; }
+        if(currentMonth > 11) { currentMonth = 0; currentYear++; }
+        renderCalendar();
+    }
+    function goToday() {
+        currentYear = new Date().getFullYear();
+        currentMonth = new Date().getMonth();
+        renderCalendar();
+    }
+
+    // ═══════════════════════════════════
+    // SHEET DÍA
+    // ═══════════════════════════════════
+    function openDay(dateStr) {
+        selectedDate = dateStr;
+        const d = new Date(dateStr+'T00:00:00');
+        const dN = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        document.getElementById('sheetDayTitle').textContent = `${dN[d.getDay()]} ${d.getDate()} de ${monthNames[d.getMonth()]}`;
+
+        const entry = appData.entries[dateStr] || {};
+        editWorked = entry.worked !== undefined ? entry.worked : true;
+        editPaid = entry.isPaid || false;
+
+        document.getElementById('inputAmount').value = entry.amount || appData.settings.rate || '';
+        document.getElementById('inputNote').value = entry.note || '';
+
+        // Poblar select de pagadores
+        const sel = document.getElementById('inputPaidBy');
+        sel.innerHTML = '<option value="">Sin pago aún</option>';
+        (appData.settings.payers||[]).forEach(p => {
+            const opt = new Option(p, p);
+            if(entry.paidBy === p) opt.selected = true;
+            sel.add(opt);
+        });
+        if(entry.paidBy && !(appData.settings.payers||[]).includes(entry.paidBy)) {
+            const opt = new Option(entry.paidBy, entry.paidBy);
+            opt.selected = true;
+            sel.add(opt);
+        }
+
+        updateWorkedUI();
+        updatePaidUI();
+        openSheet('sheet-day');
+    }
+
+    function setWorked(val) {
+        editWorked = val;
+        updateWorkedUI();
+    }
+    function updateWorkedUI() {
+        const bw = document.getElementById('btnWorked'), bn = document.getElementById('btnNotWorked');
+        const wf = document.getElementById('workedFields');
+        if(editWorked) {
+            bw.className = 'toggle-btn bg-emerald-500 text-white';
+            bn.className = 'toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-400';
+            wf.classList.remove('hidden');
+        } else {
+            bw.className = 'toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-400';
+            bn.className = 'toggle-btn bg-red-500 text-white';
+            wf.classList.add('hidden');
+        }
+    }
+    function togglePaid() {
+        editPaid = !editPaid;
+        updatePaidUI();
+    }
+    function updatePaidUI() {
+        const btn = document.getElementById('paidToggle');
+        const thumb = document.getElementById('paidThumb');
+        if(editPaid) {
+            btn.classList.add('bg-indigo-500'); btn.classList.remove('bg-slate-300','dark:bg-slate-600');
+            thumb.style.transform = 'translateX(24px)';
+        } else {
+            btn.classList.remove('bg-indigo-500'); btn.classList.add('bg-slate-300');
+            thumb.style.transform = 'translateX(0)';
+        }
+    }
+    function updateTotal() {}
+
+    function saveDay() {
+        if(!selectedDate) return;
+        const entry = { worked: editWorked };
+        if(editWorked) {
+            entry.amount = parseFloat(document.getElementById('inputAmount').value) || 0;
+            entry.paidBy = document.getElementById('inputPaidBy').value || '';
+            entry.note = document.getElementById('inputNote').value.trim();
+            entry.isPaid = editPaid && !!entry.paidBy;
+        }
+        appData.entries[selectedDate] = entry;
+        save();
+        closeSheet();
+        renderCalendar();
+        showToast('Guardado');
+    }
+    function clearDay() {
+        if(!selectedDate || !confirm('¿Borrar este registro?')) return;
+        delete appData.entries[selectedDate];
+        save();
+        closeSheet();
+        renderCalendar();
+        showToast('Borrado');
+    }
+
+    // ═══════════════════════════════════
+    // SHEET CONFIGURACIÓN
+    // ═══════════════════════════════════
+    function openSettings() {
+        document.getElementById('settingRate').value = appData.settings.rate || '';
+        document.getElementById('settingName').value = appData.settings.workerName || '';
+        document.getElementById('settingPayers').value = (appData.settings.payers||[]).join('\n');
+        openSheet('sheet-settings');
+    }
+    function saveSettings() {
+        appData.settings.rate = parseFloat(document.getElementById('settingRate').value) || 0;
+        appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
+        appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
+        save();
+        closeSheet();
+        showToast('Configuración guardada');
+    }
+
+    // ═══════════════════════════════════
+    // SHEETS / OVERLAY
+    // ═══════════════════════════════════
+    function openSheet(id) {
+        if(activeSheet) document.getElementById(activeSheet).classList.remove('open');
+        activeSheet = id;
+        document.getElementById(id).classList.add('open');
+        document.getElementById('overlay').classList.add('show');
+    }
+    function closeSheet() {
+        if(activeSheet) document.getElementById(activeSheet).classList.remove('open');
+        activeSheet = null;
+        document.getElementById('overlay').classList.remove('show');
+    }
+
+    // ═══════════════════════════════════
+    // BACKUP / RESTORE
+    // ═══════════════════════════════════
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    function backupData() {
+        triggerDownload(new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'}), 'Registro_Ninera.json');
+    }
+    function restoreData(e) {
+        const file = e.target.files[0]; if(!file) return;
+        if(!confirm('¿Restaurar copia? Se sobreescribirá el registro actual.')) { e.target.value=''; return; }
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if(data.entries) { appData = data; save(); closeSheet(); renderCalendar(); showToast('Restaurado'); }
+                else showToast('Archivo no válido', 'error');
+            } catch { showToast('Archivo no válido', 'error'); }
+            e.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // ═══════════════════════════════════
+    // TOAST
+    // ═══════════════════════════════════
+    function showToast(msg) {
+        const t = document.getElementById('toast'); t.textContent = msg;
+        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ═══════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════
+    window.onload = () => { initDark(); load(); renderCalendar(); };
+</script>
+</body>
+</html>
