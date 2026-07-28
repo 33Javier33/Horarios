@@ -127,7 +127,7 @@
             <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Monto</label>
             <div class="relative">
                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                <input type="number" id="inputAmount" class="input-field pl-8" placeholder="0" oninput="updateTotal()">
+                <input type="text" inputmode="numeric" id="inputAmount" class="input-field pl-8" placeholder="0" oninput="fmtAmountInput(this)">
             </div>
         </div>
         <div>
@@ -164,7 +164,7 @@
             <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Tarifa diaria por defecto</label>
             <div class="relative">
                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                <input type="number" id="settingRate" class="input-field pl-8" placeholder="0">
+                <input type="text" inputmode="numeric" id="settingRate" class="input-field pl-8" placeholder="0" oninput="fmtAmountInput(this)">
             </div>
         </div>
         <div>
@@ -348,7 +348,8 @@
         editWorked = entry.worked !== undefined ? entry.worked : true;
         editPaid = entry.isPaid || false;
 
-        document.getElementById('inputAmount').value = entry.amount || appData.settings.rate || '';
+        const initAmt = entry.amount || appData.settings.rate || 0;
+        document.getElementById('inputAmount').value = initAmt ? Number(initAmt).toLocaleString('es-CL') : '';
         document.getElementById('inputNote').value = entry.note || '';
 
         // Poblar select de pagadores
@@ -402,13 +403,19 @@
             thumb.style.transform = 'translateX(0)';
         }
     }
-    function updateTotal() {}
+    function fmtAmountInput(el) {
+        const raw = el.value.replace(/\D/g, '');
+        el.value = raw ? Number(raw).toLocaleString('es-CL') : '';
+    }
+    function parseAmount(val) {
+        return parseFloat((val||'').replace(/\./g,'').replace(',','.')) || 0;
+    }
 
     function saveDay() {
         if(!selectedDate) return;
         const entry = { worked: editWorked };
         if(editWorked) {
-            entry.amount = parseFloat(document.getElementById('inputAmount').value) || 0;
+            entry.amount = parseAmount(document.getElementById('inputAmount').value);
             entry.paidBy = document.getElementById('inputPaidBy').value || '';
             entry.note = document.getElementById('inputNote').value.trim();
             entry.isPaid = editPaid && !!entry.paidBy;
@@ -432,13 +439,14 @@
     // SHEET CONFIGURACIÓN
     // ═══════════════════════════════════
     function openSettings() {
-        document.getElementById('settingRate').value = appData.settings.rate || '';
+        const r = appData.settings.rate || 0;
+        document.getElementById('settingRate').value = r ? Number(r).toLocaleString('es-CL') : '';
         document.getElementById('settingName').value = appData.settings.workerName || '';
         document.getElementById('settingPayers').value = (appData.settings.payers||[]).join('\n');
         openSheet('sheet-settings');
     }
     function saveSettings() {
-        appData.settings.rate = parseFloat(document.getElementById('settingRate').value) || 0;
+        appData.settings.rate = parseAmount(document.getElementById('settingRate').value);
         appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
         appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
         save();
