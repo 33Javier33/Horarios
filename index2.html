@@ -9,121 +9,220 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: #f8fafc; overscroll-behavior: none; }
-        .dark body { background: #020617; }
+        html, body { background: #f8fafc; overscroll-behavior: none; }
+        .dark html, .dark body { background: #020617; }
+        .view { display: none; }
+        .view.active { display: block; }
         .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; max-height: 90vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 20px 20px 40px; z-index: 50; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); }
         .bottom-sheet.open { transform: translateY(0); }
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
         .overlay.show { opacity: 1; pointer-events: auto; }
         .day-cell { position: relative; aspect-ratio: 1; border-radius: 14px; border: 1.5px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 13px; font-weight: 700; overflow: hidden; }
         .day-cell:active { transform: scale(0.93); }
-        .day-cell.today { border-color: #6366f1 !important; }
-        .day-cell.worked { background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: #10b981; }
-        .day-cell.worked.paid { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border-color: #6366f1; }
-        .day-cell.not-worked { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-        .dark .day-cell.not-worked { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
-        .day-cell.empty-day { background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0; }
-        .dark .day-cell.empty-day { background: #1e293b; color: #475569; border-color: #334155; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .input-field { width: 100%; padding: 14px 16px; border-radius: 16px; background: #f1f5f9; border: none; font-family: inherit; font-size: 15px; font-weight: 600; outline: none; }
-        .dark .input-field { background: #1e293b; color: #f1f5f9; }
-        .toggle-btn { flex: 1; padding: 12px; border-radius: 14px; font-weight: 800; font-size: 13px; text-align: center; cursor: pointer; transition: all 0.2s; }
-        .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; }
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .day-cell.today { border-color: #6366f1 !important; box-shadow: 0 0 0 2px #6366f133; }
+        .day-cell.worked { background: linear-gradient(135deg,#10b981,#059669); color:#fff; border-color:#10b981; }
+        .day-cell.worked.paid { background: linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:#6366f1; }
+        .day-cell.not-worked { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+        .dark .day-cell.not-worked { background:#450a0a; color:#fca5a5; border-color:#7f1d1d; }
+        .day-cell.empty-day { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
+        .dark .day-cell.empty-day { background:#1e293b; color:#475569; border-color:#334155; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap:5px; }
+        .input-field { width:100%; padding:14px 16px; border-radius:16px; background:#f1f5f9; border:none; font-family:inherit; font-size:15px; font-weight:600; outline:none; color:#1e293b; }
+        .dark .input-field { background:#1e293b; color:#f1f5f9; }
+        .toggle-btn { flex:1; padding:12px; border-radius:14px; font-weight:800; font-size:13px; text-align:center; cursor:pointer; transition:all 0.2s; }
+        .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:8px 0 4px; cursor:pointer; transition:color 0.2s; color:#94a3b8; }
+        .nav-btn.active { color:#6366f1; }
+        .nav-btn svg { width:22px; height:22px; }
+        .nav-btn span { font-size:10px; font-weight:800; }
+        .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e293b; color:white; padding:10px 20px; border-radius:20px; font-size:13px; font-weight:700; z-index:100; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
 <body class="min-h-screen">
 
 <!-- OVERLAY -->
 <div id="overlay" class="overlay" onclick="closeSheet()"></div>
-
 <!-- TOAST -->
 <div id="toast" class="toast"></div>
 
-<!-- APP -->
-<div class="max-w-md mx-auto min-h-screen flex flex-col pb-6">
+<!-- WRAPPER -->
+<div class="max-w-md mx-auto min-h-screen flex flex-col" style="padding-bottom:72px">
 
-    <!-- HEADER -->
-    <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
-        <div class="flex items-center justify-between mb-3">
+    <!-- ══════════════════════════════ -->
+    <!-- VISTA: CALENDARIO             -->
+    <!-- ══════════════════════════════ -->
+    <div id="view-calendar" class="view active flex flex-col">
+
+        <!-- Header -->
+        <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h1 id="calWorkerName" class="text-xl font-extrabold text-slate-800 dark:text-white">Registro Niñera</h1>
+                    <p id="monthLabel" class="text-sm font-semibold text-slate-400 dark:text-slate-500"></p>
+                </div>
+                <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-lg">☀️</button>
+            </div>
+
+            <!-- Resumen -->
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <div class="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-3 text-center">
+                    <div id="summaryDays" class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">0</div>
+                    <div class="text-[10px] font-bold text-emerald-500 uppercase">Trabajados</div>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-3 text-center">
+                    <div id="summaryPending" class="text-lg font-extrabold text-amber-600 dark:text-amber-400">$0</div>
+                    <div class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
+                </div>
+                <div class="bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl p-3 text-center">
+                    <div id="summaryPaid" class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400">$0</div>
+                    <div class="text-[10px] font-bold text-indigo-500 uppercase">Pagado</div>
+                </div>
+            </div>
+
+            <!-- Chips por pagador -->
+            <div id="payerBreakdown" class="flex gap-2 mb-2 overflow-x-auto pb-1"></div>
+
+            <!-- Nav mes -->
+            <div class="flex items-center justify-between">
+                <button onclick="changeMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-xl">‹</button>
+                <button onclick="goToday()" class="px-4 py-1.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-extrabold uppercase">Hoy</button>
+                <button onclick="changeMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-xl">›</button>
+            </div>
+        </div>
+
+        <!-- Calendario -->
+        <div class="px-4 mt-4">
+            <div class="calendar-grid mb-2">
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Lun</div>
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Mar</div>
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Mié</div>
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Jue</div>
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Vie</div>
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Sáb</div>
+                <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Dom</div>
+            </div>
+            <div id="calGrid" class="calendar-grid"></div>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="px-4 mt-4 flex items-center gap-4 flex-wrap">
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-emerald-500"></div><span class="text-[11px] font-semibold text-slate-400">Trabajó · pendiente</span></div>
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-indigo-500"></div><span class="text-[11px] font-semibold text-slate-400">Trabajó · pagado</span></div>
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-red-300"></div><span class="text-[11px] font-semibold text-slate-400">No trabajó</span></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <!-- VISTA: PAGOS                  -->
+    <!-- ══════════════════════════════ -->
+    <div id="view-payments" class="view flex flex-col">
+
+        <!-- Header -->
+        <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Pagos</h1>
+                    <p id="paymentsMonthLabel" class="text-sm font-semibold text-slate-400 dark:text-slate-500"></p>
+                </div>
+                <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-lg">☀️</button>
+            </div>
+            <!-- Nav mes pagos -->
+            <div class="flex items-center justify-between">
+                <button onclick="changeMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-xl">‹</button>
+                <button onclick="goToday()" class="px-4 py-1.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-extrabold uppercase">Mes actual</button>
+                <button onclick="changeMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-xl">›</button>
+            </div>
+        </div>
+
+        <!-- Totales por pagador -->
+        <div class="px-4 mt-4">
+            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Resumen del mes</p>
+            <div id="payerCards" class="grid grid-cols-2 gap-2 mb-4"></div>
+        </div>
+
+        <!-- Lista de pagos -->
+        <div class="px-4">
+            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Detalle</p>
+            <div id="paymentList" class="space-y-1"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <!-- VISTA: CONFIGURACIÓN          -->
+    <!-- ══════════════════════════════ -->
+    <div id="view-settings" class="view flex flex-col">
+
+        <!-- Header -->
+        <div class="px-4 pt-5 pb-3 bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-30">
+            <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Configuración</h1>
+        </div>
+
+        <div class="px-4 mt-5 space-y-4">
             <div>
-                <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Registro Niñera</h1>
-                <p id="monthLabel" class="text-sm font-semibold text-slate-400 dark:text-slate-500"></p>
+                <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nombre de la trabajadora</label>
+                <input type="text" id="settingName" class="input-field" placeholder="Ej: María">
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-lg">☀️</button>
-                <button onclick="openSettings()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-lg">⚙️</button>
+            <div>
+                <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Tarifa diaria por defecto</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                    <input type="text" inputmode="numeric" id="settingRate" class="input-field pl-8" placeholder="0" oninput="fmtAmountInput(this)">
+                </div>
+            </div>
+            <div>
+                <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Quiénes pueden pagar <span class="normal-case font-semibold">(uno por línea)</span></label>
+                <textarea id="settingPayers" class="input-field" rows="4" style="resize:none" placeholder="Papá&#10;Mamá"></textarea>
+            </div>
+
+            <button onclick="saveSettings()" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar cambios</button>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Datos</p>
+                <div class="flex gap-2">
+                    <button onclick="backupData()" class="flex-1 py-3 bg-slate-800 dark:bg-slate-700 text-white font-extrabold rounded-2xl text-xs uppercase">Copia JSON</button>
+                    <label class="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 font-extrabold rounded-2xl text-xs uppercase text-center cursor-pointer">
+                        Restaurar
+                        <input type="file" accept=".json" class="hidden" onchange="restoreData(event)">
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button onclick="toggleDark()" class="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold rounded-2xl text-sm">
+                    Cambiar tema claro/oscuro
+                </button>
             </div>
         </div>
-
-        <!-- RESUMEN PRINCIPAL -->
-        <div class="grid grid-cols-3 gap-2 mb-2">
-            <div class="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-3 text-center">
-                <div id="summaryDays" class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">0</div>
-                <div class="text-[10px] font-bold text-emerald-500 uppercase">Días trabajados</div>
-            </div>
-            <div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-3 text-center">
-                <div id="summaryPending" class="text-xl font-extrabold text-amber-600 dark:text-amber-400">$0</div>
-                <div class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
-            </div>
-            <div class="bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl p-3 text-center">
-                <div id="summaryPaid" class="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">$0</div>
-                <div class="text-[10px] font-bold text-indigo-500 uppercase">Total pagado</div>
-            </div>
-        </div>
-        <!-- DESGLOSE POR PAGADOR -->
-        <div id="payerBreakdown" class="flex gap-2 mb-3 overflow-x-auto pb-1"></div>
-
-        <!-- NAV MES -->
-        <div class="flex items-center justify-between">
-            <button onclick="changeMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-lg">‹</button>
-            <button onclick="goToday()" class="px-4 py-1.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-extrabold uppercase">Hoy</button>
-            <button onclick="changeMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold text-lg">›</button>
-        </div>
-    </div>
-
-    <!-- CALENDARIO -->
-    <div class="px-4 mt-4">
-        <!-- Días semana -->
-        <div class="calendar-grid mb-2">
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Lun</div>
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Mar</div>
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Mié</div>
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Jue</div>
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Vie</div>
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Sáb</div>
-            <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Dom</div>
-        </div>
-        <div id="calGrid" class="calendar-grid"></div>
-    </div>
-
-    <!-- LEYENDA -->
-    <div class="px-4 mt-4 flex items-center gap-4 flex-wrap">
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-emerald-500"></div><span class="text-[11px] font-semibold text-slate-400">Trabajó (pendiente)</span></div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-indigo-500"></div><span class="text-[11px] font-semibold text-slate-400">Trabajó (pagado)</span></div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-red-300"></div><span class="text-[11px] font-semibold text-slate-400">No trabajó</span></div>
-    </div>
-
-    <!-- HISTORIAL PAGOS -->
-    <div class="px-4 mt-5">
-        <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Pagos del mes</p>
-        <div id="paymentList" class="space-y-2"></div>
     </div>
 
 </div>
+
+<!-- BARRA DE NAVEGACIÓN -->
+<nav class="fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">
+    <button id="nav-calendar" class="nav-btn active" onclick="setView('calendar')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span>Calendario</span>
+    </button>
+    <button id="nav-payments" class="nav-btn" onclick="setView('payments')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        <span>Pagos</span>
+    </button>
+    <button id="nav-settings" class="nav-btn" onclick="setView('settings')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Config</span>
+    </button>
+</nav>
 
 <!-- SHEET: REGISTRAR DÍA -->
 <div id="sheet-day" class="bottom-sheet bg-white dark:bg-slate-900 shadow-2xl">
     <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-5"></div>
     <h3 id="sheetDayTitle" class="text-lg font-extrabold text-slate-800 dark:text-white mb-5"></h3>
 
-    <!-- Toggle trabajó / no trabajó -->
     <div class="flex gap-2 mb-5">
-        <div id="btnWorked" class="toggle-btn bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" onclick="setWorked(true)">✅ Trabajó</div>
-        <div id="btnNotWorked" class="toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-500" onclick="setWorked(false)">❌ No trabajó</div>
+        <div id="btnWorked" class="toggle-btn" onclick="setWorked(true)">✅ Trabajó</div>
+        <div id="btnNotWorked" class="toggle-btn" onclick="setWorked(false)">❌ No trabajó</div>
     </div>
 
-    <!-- Campos (visibles solo si trabajó) -->
     <div id="workedFields" class="space-y-3">
         <div>
             <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Monto</label>
@@ -144,7 +243,7 @@
         </div>
         <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
             <span class="font-extrabold text-sm text-slate-700 dark:text-slate-200">¿Ya pagado?</span>
-            <button id="paidToggle" onclick="togglePaid()" class="w-12 h-6 rounded-full bg-slate-300 dark:bg-slate-600 relative transition-colors duration-200">
+            <button id="paidToggle" onclick="togglePaid()" class="w-12 h-6 rounded-full bg-slate-300 relative transition-colors duration-200">
                 <div id="paidThumb" class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"></div>
             </button>
         </div>
@@ -152,44 +251,7 @@
 
     <div class="flex gap-2 mt-5">
         <button onclick="clearDay()" class="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-500 font-extrabold rounded-2xl text-sm">Borrar</button>
-        <button onclick="saveDay()" class="flex-2 flex-[2] py-3 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar</button>
-    </div>
-</div>
-
-<!-- SHEET: CONFIGURACIÓN -->
-<div id="sheet-settings" class="bottom-sheet bg-white dark:bg-slate-900 shadow-2xl">
-    <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-5"></div>
-    <h3 class="text-lg font-extrabold text-slate-800 dark:text-white mb-5">Configuración</h3>
-
-    <div class="space-y-4">
-        <div>
-            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Tarifa diaria por defecto</label>
-            <div class="relative">
-                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                <input type="text" inputmode="numeric" id="settingRate" class="input-field pl-8" placeholder="0" oninput="fmtAmountInput(this)">
-            </div>
-        </div>
-        <div>
-            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nombre de la trabajadora</label>
-            <input type="text" id="settingName" class="input-field" placeholder="Ej: María">
-        </div>
-        <div>
-            <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Quiénes pueden pagar (uno por línea)</label>
-            <textarea id="settingPayers" class="input-field" rows="3" style="resize:none" placeholder="Javier&#10;Pareja"></textarea>
-        </div>
-    </div>
-
-    <div class="flex gap-2 mt-5">
-        <button onclick="closeSheet()" class="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-extrabold rounded-2xl text-sm">Cancelar</button>
-        <button onclick="saveSettings()" class="flex-[2] py-3 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar</button>
-    </div>
-
-    <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-        <button onclick="backupData()" class="flex-1 py-3 bg-slate-800 text-white font-extrabold rounded-2xl text-xs uppercase">Copia JSON</button>
-        <label class="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 font-extrabold rounded-2xl text-xs uppercase text-center cursor-pointer">
-            Restaurar
-            <input type="file" accept=".json" class="hidden" onchange="restoreData(event)">
-        </label>
+        <button onclick="saveDay()" class="flex-[2] py-3 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar</button>
     </div>
 </div>
 
@@ -200,6 +262,7 @@
     let appData = { settings: { rate: 0, workerName: 'Niñera', payers: ['Papá', 'Mamá'] }, entries: {} };
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth();
+    let currentViewName = 'calendar';
     let selectedDate = null;
     let editWorked = true;
     let editPaid = false;
@@ -207,7 +270,15 @@
 
     const STORAGE_KEY = 'ninera_registro_v1';
     const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    const dayNames = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    const dNShort = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const dNLong = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+    const palette = [
+        { chip:'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', avatar:'bg-violet-500', border:'border-violet-200 dark:border-violet-800', text:'text-violet-700 dark:text-violet-300', bg:'bg-violet-50 dark:bg-violet-900/30' },
+        { chip:'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300', avatar:'bg-sky-500', border:'border-sky-200 dark:border-sky-800', text:'text-sky-700 dark:text-sky-300', bg:'bg-sky-50 dark:bg-sky-900/30' },
+        { chip:'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300', avatar:'bg-pink-500', border:'border-pink-200 dark:border-pink-800', text:'text-pink-700 dark:text-pink-300', bg:'bg-pink-50 dark:bg-pink-900/30' },
+        { chip:'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', avatar:'bg-orange-500', border:'border-orange-200 dark:border-orange-800', text:'text-orange-700 dark:text-orange-300', bg:'bg-orange-50 dark:bg-orange-900/30' },
+    ];
 
     // ═══════════════════════════════════
     // STORAGE
@@ -215,8 +286,8 @@
     function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
     function load() {
         const s = localStorage.getItem(STORAGE_KEY);
-        if(s) { try { appData = JSON.parse(s); } catch(e) {} }
-        if(!appData.settings) appData.settings = { rate: 0, workerName: 'Niñera', payers: ['Papá', 'Mamá'] };
+        if(s) try { appData = JSON.parse(s); } catch(e) {}
+        if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
         if(!appData.entries) appData.entries = {};
     }
 
@@ -224,9 +295,8 @@
     // DARK MODE
     // ═══════════════════════════════════
     function initDark() {
-        if(localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        if(localStorage.theme==='dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme:dark)').matches))
             document.documentElement.classList.add('dark');
-        }
     }
     function toggleDark() {
         const isDark = document.documentElement.classList.toggle('dark');
@@ -234,195 +304,242 @@
     }
 
     // ═══════════════════════════════════
-    // CALENDARIO
+    // VISTAS
     // ═══════════════════════════════════
-    function renderCalendar() {
-        document.getElementById('monthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-        const grid = document.getElementById('calGrid');
-        const today = new Date();
-        const firstDay = new Date(currentYear, currentMonth, 1);
-        const lastDay = new Date(currentYear, currentMonth + 1, 0);
-        const startOffset = (firstDay.getDay() + 6) % 7; // Lun=0
-        let html = '';
-
-        for(let i = 0; i < startOffset; i++) html += `<div></div>`;
-
-        for(let d = 1; d <= lastDay.getDate(); d++) {
-            const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-            const entry = appData.entries[dateStr];
-            const isToday = today.getDate()===d && today.getMonth()===currentMonth && today.getFullYear()===currentYear;
-            let cls = 'day-cell ', inner = `<span class="text-sm font-extrabold">${d}</span>`;
-
-            if(entry) {
-                if(entry.worked) {
-                    cls += entry.isPaid ? 'worked paid' : 'worked';
-                    const amt = entry.amount ? `<span style="font-size:9px;font-weight:800;opacity:0.88;margin-top:1px">${fmtCompact(entry.amount)}</span>` : '';
-                    inner = `<span class="text-sm font-extrabold">${d}</span>${amt}`;
-                } else {
-                    cls += 'not-worked';
-                }
-            } else {
-                cls += 'empty-day';
-            }
-            if(isToday) cls += ' today';
-            html += `<div class="${cls}" onclick="openDay('${dateStr}')">${inner}</div>`;
-        }
-        grid.innerHTML = html;
-        renderSummary();
-        renderPaymentList();
+    function setView(name) {
+        currentViewName = name;
+        ['calendar','payments','settings'].forEach(v => {
+            document.getElementById(`view-${v}`).classList.toggle('active', v===name);
+            document.getElementById(`nav-${v}`).classList.toggle('active', v===name);
+        });
+        if(name==='calendar') renderCalendar();
+        if(name==='payments') renderPayments();
+        if(name==='settings') loadSettingsForm();
     }
 
+    // ═══════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════
     function fmtCompact(n) {
-        if(n >= 1000000) return '$'+(n/1000000).toFixed(1)+'M';
-        if(n >= 1000) return '$'+(n/1000).toFixed(0)+'k';
+        if(n>=1000000) return '$'+(n/1000000).toFixed(1)+'M';
+        if(n>=1000) return '$'+(n/1000).toFixed(0)+'k';
         return '$'+n;
     }
-    function fmt(n) { return '$' + Number(n||0).toLocaleString('es-CL'); }
+    function fmt(n) { return '$'+Number(n||0).toLocaleString('es-CL'); }
+    function fmtAmountInput(el) {
+        const raw = el.value.replace(/\D/g,'');
+        el.value = raw ? Number(raw).toLocaleString('es-CL') : '';
+    }
+    function parseAmount(val) {
+        return parseFloat((val||'').replace(/\./g,'').replace(',','.')) || 0;
+    }
+    function getPrefix() {
+        return `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
+    }
+    function getPayerColor(name, map) {
+        if(!map[name]) map[name] = palette[Object.keys(map).length % palette.length];
+        return map[name];
+    }
 
-    function renderSummary() {
-        const prefix = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
-        let days = 0, pending = 0, paid = 0;
-        const byPayer = {}; // { nombre: { days, amount } }
-
-        Object.entries(appData.entries).forEach(([k, e]) => {
+    // ═══════════════════════════════════
+    // CALCULAR TOTALES DEL MES
+    // ═══════════════════════════════════
+    function calcMonthTotals() {
+        const prefix = getPrefix();
+        let days=0, pending=0, paid=0;
+        const byPayer = {};
+        Object.entries(appData.entries).forEach(([k,e]) => {
             if(!k.startsWith(prefix) || !e.worked) return;
             days++;
             if(e.isPaid && e.paidBy) {
                 paid += (e.amount||0);
-                if(!byPayer[e.paidBy]) byPayer[e.paidBy] = { days: 0, amount: 0 };
+                if(!byPayer[e.paidBy]) byPayer[e.paidBy] = { days:0, amount:0 };
                 byPayer[e.paidBy].days++;
                 byPayer[e.paidBy].amount += (e.amount||0);
             } else {
                 pending += (e.amount||0);
             }
         });
+        return { days, pending, paid, byPayer };
+    }
 
+    // ═══════════════════════════════════
+    // VISTA CALENDARIO
+    // ═══════════════════════════════════
+    function renderCalendar() {
+        document.getElementById('monthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+        document.getElementById('calWorkerName').textContent = appData.settings.workerName || 'Registro Niñera';
+
+        const grid = document.getElementById('calGrid');
+        const today = new Date();
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const lastDay = new Date(currentYear, currentMonth+1, 0);
+        const startOffset = (firstDay.getDay()+6)%7;
+        let html = '';
+        for(let i=0; i<startOffset; i++) html+=`<div></div>`;
+        for(let d=1; d<=lastDay.getDate(); d++) {
+            const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const entry = appData.entries[dateStr];
+            const isToday = today.getDate()===d && today.getMonth()===currentMonth && today.getFullYear()===currentYear;
+            let cls='day-cell ', inner=`<span class="text-sm font-extrabold">${d}</span>`;
+            if(entry) {
+                if(entry.worked) {
+                    cls += entry.isPaid ? 'worked paid' : 'worked';
+                    const amt = entry.amount ? `<span style="font-size:9px;font-weight:800;opacity:0.88;margin-top:1px">${fmtCompact(entry.amount)}</span>` : '';
+                    inner = `<span class="text-sm font-extrabold">${d}</span>${amt}`;
+                } else { cls += 'not-worked'; }
+            } else { cls += 'empty-day'; }
+            if(isToday) cls += ' today';
+            html += `<div class="${cls}" onclick="openDay('${dateStr}')">${inner}</div>`;
+        }
+        grid.innerHTML = html;
+
+        // Resumen en header
+        const { days, pending, paid, byPayer } = calcMonthTotals();
         document.getElementById('summaryDays').textContent = days;
         document.getElementById('summaryPending').textContent = fmt(pending);
         document.getElementById('summaryPaid').textContent = fmt(paid);
 
-        // Desglose por pagador
-        const colors = ['bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800',
-                         'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
-                         'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800',
-                         'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'];
+        // Chips pagadores
         const payers = Object.entries(byPayer);
         const bd = document.getElementById('payerBreakdown');
-        if(!payers.length) { bd.innerHTML = ''; return; }
-        bd.innerHTML = payers.map(([name, data], i) => {
-            const c = colors[i % colors.length];
-            return `<div class="shrink-0 rounded-2xl border px-3 py-2 ${c}">
+        const colorMap = {};
+        bd.innerHTML = payers.length ? payers.map(([name,data]) => {
+            const c = getPayerColor(name, colorMap);
+            return `<div class="shrink-0 rounded-2xl border px-3 py-2 ${c.chip} ${c.border}">
                 <div class="text-[10px] font-extrabold uppercase opacity-70 mb-0.5">${name}</div>
-                <div class="text-base font-extrabold leading-none">${data.days} día${data.days!==1?'s':''}</div>
+                <div class="text-sm font-extrabold leading-none">${data.days} día${data.days!==1?'s':''}</div>
                 <div class="text-[11px] font-bold opacity-80 mt-0.5">${fmt(data.amount)}</div>
             </div>`;
-        }).join('');
+        }).join('') : '';
     }
 
-    function renderPaymentList() {
-        const prefix = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
+    // ═══════════════════════════════════
+    // VISTA PAGOS
+    // ═══════════════════════════════════
+    function renderPayments() {
+        document.getElementById('paymentsMonthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+        const { days, pending, paid, byPayer } = calcMonthTotals();
+        const colorMap = {};
+
+        // Tarjetas por pagador
+        const cards = document.getElementById('payerCards');
+        const payerEntries = Object.entries(byPayer);
+
+        let cardsHtml = '';
+        // Tarjeta pendiente
+        cardsHtml += `<div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-4">
+            <div class="text-[10px] font-extrabold text-amber-500 uppercase mb-1">Pendiente</div>
+            <div class="text-2xl font-extrabold text-amber-600 dark:text-amber-300">${fmt(pending)}</div>
+            <div class="text-[11px] text-amber-500 mt-0.5">${days - payerEntries.reduce((s,[,d])=>s+d.days,0)} día${(days-payerEntries.reduce((s,[,d])=>s+d.days,0))!==1?'s':''}</div>
+        </div>`;
+        // Tarjetas por pagador
+        payerEntries.forEach(([name,data]) => {
+            const c = getPayerColor(name, colorMap);
+            const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+            cardsHtml += `<div class="${c.bg} rounded-2xl p-4">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <div class="w-4 h-4 rounded-full ${c.avatar} flex items-center justify-center text-[8px] font-extrabold text-white">${initials}</div>
+                    <div class="text-[10px] font-extrabold uppercase ${c.text}">${name}</div>
+                </div>
+                <div class="text-2xl font-extrabold ${c.text}">${fmt(data.amount)}</div>
+                <div class="text-[11px] ${c.text} opacity-70 mt-0.5">${data.days} día${data.days!==1?'s':''}</div>
+            </div>`;
+        });
+        cards.innerHTML = cardsHtml;
+
+        // Lista detalle
+        const prefix = getPrefix();
         const entries = Object.entries(appData.entries)
-            .filter(([k, e]) => k.startsWith(prefix) && e.worked)
+            .filter(([k,e]) => k.startsWith(prefix) && e.worked)
             .sort(([a],[b]) => a.localeCompare(b));
 
         if(!entries.length) {
-            document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-300 dark:text-slate-600 py-4">Sin registros este mes</div>`;
+            document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-300 dark:text-slate-600 py-8">Sin registros este mes</div>`;
             return;
         }
 
-        const dN = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        const payerColors = {};
-        const palette = [
-            { chip: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', avatar: 'bg-violet-500' },
-            { chip: 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300', avatar: 'bg-sky-500' },
-            { chip: 'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300', avatar: 'bg-pink-500' },
-            { chip: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', avatar: 'bg-orange-500' },
-        ];
-        let colorIdx = 0;
-        function payerColor(name) {
-            if(!name) return palette[0];
-            if(!payerColors[name]) payerColors[name] = palette[colorIdx++ % palette.length];
-            return payerColors[name];
-        }
-
-        // Agrupar: pendientes primero, luego por pagador
-        const pending = entries.filter(([,e]) => !e.isPaid);
-        const paid = entries.filter(([,e]) => e.isPaid);
-
-        // Agrupar pagados por pagador
-        const byPayer = {};
-        paid.forEach(([dateStr, e]) => {
-            const key = e.paidBy || '—';
-            if(!byPayer[key]) byPayer[key] = [];
-            byPayer[key].push([dateStr, e]);
+        const colorMap2 = {};
+        const pendingList = entries.filter(([,e]) => !e.isPaid);
+        const paidList = entries.filter(([,e]) => e.isPaid);
+        const byPayerList = {};
+        paidList.forEach(([dateStr,e]) => {
+            const key = e.paidBy||'—';
+            if(!byPayerList[key]) byPayerList[key] = [];
+            byPayerList[key].push([dateStr,e]);
         });
 
-        let html = '';
-
-        // Sección pendientes
-        if(pending.length) {
-            const totalPend = pending.reduce((s,[,e]) => s+(e.amount||0), 0);
-            html += `<div class="flex items-center justify-between mb-2 mt-1">
-                <span class="text-[10px] font-extrabold text-amber-500 uppercase tracking-widest">Pendiente de pago</span>
-                <span class="text-[11px] font-extrabold text-amber-600">${fmt(totalPend)}</span>
+        const dayCard = (dateStr, e, col) => {
+            const d = new Date(dateStr+'T00:00:00');
+            return `<div onclick="openDay('${dateStr}')" class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex flex-col items-center justify-center shrink-0">
+                    <span class="text-[9px] font-extrabold text-slate-400 uppercase">${dNShort[d.getDay()]}</span>
+                    <span class="text-base font-extrabold text-slate-700 dark:text-slate-100 leading-none">${d.getDate()}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</div>
+                    ${e.note ? `<div class="text-[11px] text-slate-400 truncate">${e.note}</div>` : ''}
+                </div>
+                ${col ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 ${col.chip}">${e.paidBy}</span>` : `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300">Pendiente</span>`}
             </div>`;
-            html += pending.map(([dateStr, e]) => {
-                const d = new Date(dateStr+'T00:00:00');
-                return `<div onclick="openDay('${dateStr}')" class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform mb-2">
-                    <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex flex-col items-center justify-center shrink-0">
-                        <span class="text-[9px] font-extrabold text-amber-400 uppercase">${dN[d.getDay()]}</span>
-                        <span class="text-base font-extrabold text-amber-700 dark:text-amber-300 leading-none">${d.getDate()}</span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</div>
-                        ${e.note ? `<div class="text-[11px] text-slate-400 truncate">${e.note}</div>` : ''}
-                    </div>
-                    <span class="text-[10px] font-extrabold px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300">Pendiente</span>
-                </div>`;
-            }).join('');
-        }
+        };
 
-        // Sección por pagador
-        Object.entries(byPayer).forEach(([payer, items]) => {
-            const total = items.reduce((s,[,e]) => s+(e.amount||0), 0);
-            const col = payerColor(payer);
+        let html = '';
+        if(pendingList.length) {
+            const tot = pendingList.reduce((s,[,e])=>s+(e.amount||0),0);
+            html += `<div class="flex items-center justify-between py-2"><span class="text-[10px] font-extrabold text-amber-500 uppercase tracking-widest">Pendientes</span><span class="text-xs font-extrabold text-amber-600">${fmt(tot)}</span></div>`;
+            html += `<div class="space-y-2 mb-4">${pendingList.map(([d,e])=>dayCard(d,e,null)).join('')}</div>`;
+        }
+        Object.entries(byPayerList).forEach(([payer,items]) => {
+            const tot = items.reduce((s,[,e])=>s+(e.amount||0),0);
+            const col = getPayerColor(payer, colorMap2);
             const initials = payer.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-            html += `<div class="flex items-center justify-between mb-2 mt-3">
+            html += `<div class="flex items-center justify-between py-2">
                 <div class="flex items-center gap-2">
                     <div class="w-5 h-5 rounded-full ${col.avatar} flex items-center justify-center text-[9px] font-extrabold text-white">${initials}</div>
                     <span class="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Pagado por ${payer}</span>
                 </div>
-                <span class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">${items.length} día${items.length!==1?'s':''} · ${fmt(total)}</span>
+                <span class="text-xs font-extrabold text-slate-500 dark:text-slate-400">${items.length} día${items.length!==1?'s':''} · ${fmt(tot)}</span>
             </div>`;
-            html += items.map(([dateStr, e]) => {
-                const d = new Date(dateStr+'T00:00:00');
-                return `<div onclick="openDay('${dateStr}')" class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform mb-2">
-                    <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex flex-col items-center justify-center shrink-0">
-                        <span class="text-[9px] font-extrabold text-slate-400 uppercase">${dN[d.getDay()]}</span>
-                        <span class="text-base font-extrabold text-slate-700 dark:text-slate-100 leading-none">${d.getDate()}</span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</div>
-                        ${e.note ? `<div class="text-[11px] text-slate-400 truncate">${e.note}</div>` : ''}
-                    </div>
-                    <span class="text-[10px] font-extrabold px-2 py-1 rounded-full ${col.chip}">${payer}</span>
-                </div>`;
-            }).join('');
+            html += `<div class="space-y-2 mb-4">${items.map(([d,e])=>dayCard(d,e,col)).join('')}</div>`;
         });
 
         document.getElementById('paymentList').innerHTML = html;
     }
 
+    // ═══════════════════════════════════
+    // VISTA CONFIGURACIÓN
+    // ═══════════════════════════════════
+    function loadSettingsForm() {
+        const r = appData.settings.rate||0;
+        document.getElementById('settingRate').value = r ? Number(r).toLocaleString('es-CL') : '';
+        document.getElementById('settingName').value = appData.settings.workerName||'';
+        document.getElementById('settingPayers').value = (appData.settings.payers||[]).join('\n');
+    }
+    function saveSettings() {
+        appData.settings.rate = parseAmount(document.getElementById('settingRate').value);
+        appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
+        appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
+        save();
+        showToast('Configuración guardada');
+    }
+
+    // ═══════════════════════════════════
+    // NAVEGACIÓN MES
+    // ═══════════════════════════════════
     function changeMonth(dir) {
         currentMonth += dir;
-        if(currentMonth < 0) { currentMonth = 11; currentYear--; }
-        if(currentMonth > 11) { currentMonth = 0; currentYear++; }
-        renderCalendar();
+        if(currentMonth<0) { currentMonth=11; currentYear--; }
+        if(currentMonth>11) { currentMonth=0; currentYear++; }
+        if(currentViewName==='calendar') renderCalendar();
+        else if(currentViewName==='payments') renderPayments();
     }
     function goToday() {
         currentYear = new Date().getFullYear();
         currentMonth = new Date().getMonth();
-        renderCalendar();
+        if(currentViewName==='calendar') renderCalendar();
+        else if(currentViewName==='payments') renderPayments();
     }
 
     // ═══════════════════════════════════
@@ -431,117 +548,69 @@
     function openDay(dateStr) {
         selectedDate = dateStr;
         const d = new Date(dateStr+'T00:00:00');
-        const dN = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-        document.getElementById('sheetDayTitle').textContent = `${dN[d.getDay()]} ${d.getDate()} de ${monthNames[d.getMonth()]}`;
-
-        const entry = appData.entries[dateStr] || {};
-        editWorked = entry.worked !== undefined ? entry.worked : true;
-        editPaid = entry.isPaid || false;
-
+        document.getElementById('sheetDayTitle').textContent = `${dNLong[d.getDay()]} ${d.getDate()} de ${monthNames[d.getMonth()]}`;
+        const entry = appData.entries[dateStr]||{};
+        editWorked = entry.worked!==undefined ? entry.worked : true;
+        editPaid = entry.isPaid||false;
         const initAmt = entry.amount || appData.settings.rate || 0;
         document.getElementById('inputAmount').value = initAmt ? Number(initAmt).toLocaleString('es-CL') : '';
-        document.getElementById('inputNote').value = entry.note || '';
-
-        // Poblar select de pagadores
+        document.getElementById('inputNote').value = entry.note||'';
         const sel = document.getElementById('inputPaidBy');
         sel.innerHTML = '<option value="">Sin pago aún</option>';
         (appData.settings.payers||[]).forEach(p => {
-            const opt = new Option(p, p);
-            if(entry.paidBy === p) opt.selected = true;
+            const opt = new Option(p,p);
+            if(entry.paidBy===p) opt.selected=true;
             sel.add(opt);
         });
         if(entry.paidBy && !(appData.settings.payers||[]).includes(entry.paidBy)) {
-            const opt = new Option(entry.paidBy, entry.paidBy);
-            opt.selected = true;
-            sel.add(opt);
+            const opt = new Option(entry.paidBy,entry.paidBy);
+            opt.selected=true; sel.add(opt);
         }
-
-        updateWorkedUI();
-        updatePaidUI();
+        updateWorkedUI(); updatePaidUI();
         openSheet('sheet-day');
     }
-
-    function setWorked(val) {
-        editWorked = val;
-        updateWorkedUI();
-    }
+    function setWorked(val) { editWorked=val; updateWorkedUI(); }
     function updateWorkedUI() {
-        const bw = document.getElementById('btnWorked'), bn = document.getElementById('btnNotWorked');
-        const wf = document.getElementById('workedFields');
+        const bw=document.getElementById('btnWorked'), bn=document.getElementById('btnNotWorked');
         if(editWorked) {
-            bw.className = 'toggle-btn bg-emerald-500 text-white';
-            bn.className = 'toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-400';
-            wf.classList.remove('hidden');
+            bw.className='toggle-btn bg-emerald-500 text-white';
+            bn.className='toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-400';
+            document.getElementById('workedFields').classList.remove('hidden');
         } else {
-            bw.className = 'toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-400';
-            bn.className = 'toggle-btn bg-red-500 text-white';
-            wf.classList.add('hidden');
+            bw.className='toggle-btn bg-slate-100 dark:bg-slate-800 text-slate-400';
+            bn.className='toggle-btn bg-red-500 text-white';
+            document.getElementById('workedFields').classList.add('hidden');
         }
     }
-    function togglePaid() {
-        editPaid = !editPaid;
-        updatePaidUI();
-    }
+    function togglePaid() { editPaid=!editPaid; updatePaidUI(); }
     function updatePaidUI() {
-        const btn = document.getElementById('paidToggle');
-        const thumb = document.getElementById('paidThumb');
-        if(editPaid) {
-            btn.classList.add('bg-indigo-500'); btn.classList.remove('bg-slate-300','dark:bg-slate-600');
-            thumb.style.transform = 'translateX(24px)';
-        } else {
-            btn.classList.remove('bg-indigo-500'); btn.classList.add('bg-slate-300');
-            thumb.style.transform = 'translateX(0)';
-        }
+        const btn=document.getElementById('paidToggle'), thumb=document.getElementById('paidThumb');
+        btn.classList.toggle('bg-indigo-500', editPaid);
+        btn.classList.toggle('bg-slate-300', !editPaid);
+        thumb.style.transform = editPaid ? 'translateX(24px)' : 'translateX(0)';
     }
-    function fmtAmountInput(el) {
-        const raw = el.value.replace(/\D/g, '');
-        el.value = raw ? Number(raw).toLocaleString('es-CL') : '';
-    }
-    function parseAmount(val) {
-        return parseFloat((val||'').replace(/\./g,'').replace(',','.')) || 0;
-    }
-
     function saveDay() {
         if(!selectedDate) return;
         const entry = { worked: editWorked };
         if(editWorked) {
             entry.amount = parseAmount(document.getElementById('inputAmount').value);
-            entry.paidBy = document.getElementById('inputPaidBy').value || '';
+            entry.paidBy = document.getElementById('inputPaidBy').value||'';
             entry.note = document.getElementById('inputNote').value.trim();
             entry.isPaid = editPaid && !!entry.paidBy;
         }
         appData.entries[selectedDate] = entry;
-        save();
-        closeSheet();
-        renderCalendar();
+        save(); closeSheet();
+        if(currentViewName==='calendar') renderCalendar();
+        else if(currentViewName==='payments') renderPayments();
         showToast('Guardado');
     }
     function clearDay() {
         if(!selectedDate || !confirm('¿Borrar este registro?')) return;
         delete appData.entries[selectedDate];
-        save();
-        closeSheet();
-        renderCalendar();
+        save(); closeSheet();
+        if(currentViewName==='calendar') renderCalendar();
+        else if(currentViewName==='payments') renderPayments();
         showToast('Borrado');
-    }
-
-    // ═══════════════════════════════════
-    // SHEET CONFIGURACIÓN
-    // ═══════════════════════════════════
-    function openSettings() {
-        const r = appData.settings.rate || 0;
-        document.getElementById('settingRate').value = r ? Number(r).toLocaleString('es-CL') : '';
-        document.getElementById('settingName').value = appData.settings.workerName || '';
-        document.getElementById('settingPayers').value = (appData.settings.payers||[]).join('\n');
-        openSheet('sheet-settings');
-    }
-    function saveSettings() {
-        appData.settings.rate = parseAmount(document.getElementById('settingRate').value);
-        appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
-        appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
-        save();
-        closeSheet();
-        showToast('Configuración guardada');
     }
 
     // ═══════════════════════════════════
@@ -549,13 +618,13 @@
     // ═══════════════════════════════════
     function openSheet(id) {
         if(activeSheet) document.getElementById(activeSheet).classList.remove('open');
-        activeSheet = id;
+        activeSheet=id;
         document.getElementById(id).classList.add('open');
         document.getElementById('overlay').classList.add('show');
     }
     function closeSheet() {
         if(activeSheet) document.getElementById(activeSheet).classList.remove('open');
-        activeSheet = null;
+        activeSheet=null;
         document.getElementById('overlay').classList.remove('show');
     }
 
@@ -563,25 +632,25 @@
     // BACKUP / RESTORE
     // ═══════════════════════════════════
     function triggerDownload(blob, filename) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = filename;
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download=filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
     function backupData() {
-        triggerDownload(new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'}), 'Registro_Ninera.json');
+        triggerDownload(new Blob([JSON.stringify(appData,null,2)],{type:'application/json'}),'Registro_Ninera.json');
     }
     function restoreData(e) {
-        const file = e.target.files[0]; if(!file) return;
+        const file=e.target.files[0]; if(!file) return;
         if(!confirm('¿Restaurar copia? Se sobreescribirá el registro actual.')) { e.target.value=''; return; }
-        const reader = new FileReader();
-        reader.onload = ev => {
+        const reader=new FileReader();
+        reader.onload=ev=>{
             try {
-                const data = JSON.parse(ev.target.result);
-                if(data.entries) { appData = data; save(); closeSheet(); renderCalendar(); showToast('Restaurado'); }
-                else showToast('Archivo no válido', 'error');
-            } catch { showToast('Archivo no válido', 'error'); }
-            e.target.value = '';
+                const data=JSON.parse(ev.target.result);
+                if(data.entries) { appData=data; save(); loadSettingsForm(); renderCalendar(); setView('calendar'); showToast('Restaurado'); }
+                else showToast('Archivo no válido');
+            } catch { showToast('Archivo no válido'); }
+            e.target.value='';
         };
         reader.readAsText(file);
     }
@@ -590,8 +659,8 @@
     // TOAST
     // ═══════════════════════════════════
     function showToast(msg) {
-        const t = document.getElementById('toast'); t.textContent = msg;
-        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+        const t=document.getElementById('toast'); t.textContent=msg;
+        t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200);
     }
 
     // ═══════════════════════════════════
