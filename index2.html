@@ -11,8 +11,8 @@
         * { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
         html, body { background: #f8fafc; overscroll-behavior: none; }
         .dark html, .dark body { background: #020617; }
-        .view { display: none; }
-        .view.active { display: block; }
+        .view { display: none !important; }
+        .view.active { display: flex !important; flex-direction: column; }
         .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; max-height: 90vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 20px 20px 40px; z-index: 50; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); }
         .bottom-sheet.open { transform: translateY(0); }
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
@@ -51,7 +51,7 @@
     <!-- ══════════════════════════════ -->
     <!-- VISTA: CALENDARIO             -->
     <!-- ══════════════════════════════ -->
-    <div id="view-calendar" class="view active flex flex-col">
+    <div id="view-calendar" class="view active">
 
         <!-- Header -->
         <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
@@ -115,7 +115,7 @@
     <!-- ══════════════════════════════ -->
     <!-- VISTA: PAGOS                  -->
     <!-- ══════════════════════════════ -->
-    <div id="view-payments" class="view flex flex-col">
+    <div id="view-payments" class="view">
 
         <!-- Header -->
         <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
@@ -150,7 +150,7 @@
     <!-- ══════════════════════════════ -->
     <!-- VISTA: CONFIGURACIÓN          -->
     <!-- ══════════════════════════════ -->
-    <div id="view-settings" class="view flex flex-col">
+    <div id="view-settings" class="view">
 
         <!-- Header -->
         <div class="px-4 pt-5 pb-3 bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-30">
