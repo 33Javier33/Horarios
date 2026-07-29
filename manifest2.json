@@ -1,0 +1,26 @@
+{
+  "name": "Registro Niñera",
+  "short_name": "Niñera",
+  "description": "Registro de días trabajados, pagos y seguimiento por pagador.",
+  "version": "1.0.0",
+  "start_url": "./index2.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0fdf4",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

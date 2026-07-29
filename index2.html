@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
+    <link rel="manifest" href="manifest2.json">
+    <meta name="theme-color" content="#10b981">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Niñera">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -177,7 +183,12 @@
             <button onclick="saveSettings()" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar cambios</button>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Datos</p>
+                <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Nube ☁️</p>
+                <button onclick="syncCloud('LOAD')" class="w-full py-3 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm mb-2">Forzar descarga desde nube</button>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Respaldo local</p>
                 <div class="flex gap-2">
                     <button onclick="backupData()" class="flex-1 py-3 bg-slate-800 dark:bg-slate-700 text-white font-extrabold rounded-2xl text-xs uppercase">Copia JSON</button>
                     <label class="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 font-extrabold rounded-2xl text-xs uppercase text-center cursor-pointer">
@@ -269,6 +280,9 @@
     let activeSheet = null;
 
     const STORAGE_KEY = 'ninera_registro_v1';
+    const SUPABASE_URL = "https://lpulmjzboogixbdxxayo.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdWxtanpib29naXhiZHh4YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjY0NzMsImV4cCI6MjA5MTI0MjQ3M30.vjebyQb4Bb62ZQlNaJZveuxdBYDOmtC4bM7uwAilDzY";
+    const CLOUD_ID = 'ninera';
     const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     const dNShort = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     const dNLong = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -283,7 +297,10 @@
     // ═══════════════════════════════════
     // STORAGE
     // ═══════════════════════════════════
-    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
+    function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        syncCloud('SAVE');
+    }
     function load() {
         const s = localStorage.getItem(STORAGE_KEY);
         if(s) try { appData = JSON.parse(s); } catch(e) {}
@@ -656,6 +673,32 @@
     }
 
     // ═══════════════════════════════════
+    // SUPABASE SYNC
+    // ═══════════════════════════════════
+    async function syncCloud(action) {
+        try {
+            const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' };
+            if(action === 'SAVE') {
+                await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ id: CLOUD_ID, payload: appData, updated_at: new Date().toISOString() })
+                });
+            } else {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload`, { headers });
+                const rows = await res.json();
+                if(rows && rows[0] && rows[0].payload) {
+                    appData = rows[0].payload;
+                    if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
+                    if(!appData.entries) appData.entries = {};
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                    renderCalendar();
+                    showToast('Datos sincronizados ☁️');
+                }
+            }
+        } catch(e) { console.warn('Sync error', e); }
+    }
+
+    // ═══════════════════════════════════
     // TOAST
     // ═══════════════════════════════════
     function showToast(msg) {
@@ -666,7 +709,11 @@
     // ═══════════════════════════════════
     // INIT
     // ═══════════════════════════════════
-    window.onload = () => { initDark(); load(); renderCalendar(); };
+    window.onload = async () => {
+        if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw2.js').catch(()=>{});
+        initDark(); load(); renderCalendar();
+        await syncCloud('LOAD');
+    };
 </script>
 </body>
 </html>
