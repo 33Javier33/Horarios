@@ -1786,7 +1786,7 @@
         }
 
         window.onload = async () => {
-            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(r=>console.log('SW',r)).catch(e=>console.log('SW Error',e)); }
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js', { scope: './' }).then(r=>console.log('SW',r)).catch(e=>console.log('SW Error',e)); }
             
             const today = new Date(); currentDisplayYear = today.getFullYear(); currentDisplayMonth = today.getMonth(); currentDisplayDay = today.getDate();
             monthNames.forEach((m, i) => document.getElementById('displayMonth').add(new Option(m, i)));

@@ -1,4 +1,5 @@
 {
+  "id": "ninera-registro",
   "name": "Registro Niñera",
   "short_name": "Niñera",
   "description": "Registro de días trabajados, pagos y seguimiento por pagador.",
