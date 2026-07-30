@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.3.0">
+    <meta name="app-version" content="2.4.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -63,9 +63,8 @@
         .chat-bubble-me { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-radius:18px 18px 4px 18px; }
         .chat-bubble-other { background:#e8edf5; color:#0f172a; border-radius:18px 18px 18px 4px; }
         .dark .chat-bubble-other { background:#1e293b; color:#f1f5f9; }
-        .msg-bar { position:fixed; bottom:72px; left:0; right:0; max-width:448px; margin:0 auto; background:#fff; border-top:1.5px solid #cbd5e1; z-index:20; display:none; flex-direction:column; overflow:hidden; border-radius:16px 16px 0 0; }
+        .msg-bar { background:#fff; border-top:1.5px solid #cbd5e1; flex-direction:column; flex-shrink:0; display:flex; }
         .dark .msg-bar { background:#0f172a; border-color:#1e293b; }
-        .msg-bar.show { display:flex; }
         .badge { position:absolute; top:-3px; right:-3px; background:#ef4444; color:#fff; border-radius:9999px; min-width:15px; height:15px; font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center; padding:0 3px; line-height:1; }
         .brand-footer { font-size:10px; font-weight:800; letter-spacing:0.4em; text-transform:uppercase; color:#94a3b8; }
         /* Ayuda */
@@ -82,12 +81,6 @@
     </style>
 </head>
 <body class="min-h-screen">
-
-<!-- BANNER DE ACTUALIZACIÓN -->
-<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;max-width:448px;margin:0 auto;z-index:400;background:linear-gradient(90deg,#4f46e5,#7c3aed);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 3px 16px rgba(79,70,229,0.45)">
-    <span style="font-size:13px;font-weight:700">✨ Nueva versión disponible</span>
-    <button onclick="applyUpdate()" style="background:#fff;color:#4f46e5;border-radius:10px;padding:5px 14px;font-size:12px;font-weight:800;white-space:nowrap;border:none;cursor:pointer">Actualizar ahora</button>
-</div>
 
 <!-- SPLASH SCREEN -->
 <div id="splash" style="position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s ease">
@@ -588,7 +581,7 @@
     <!-- ══════════════════════════════ -->
     <!-- VISTA: MENSAJES               -->
     <!-- ══════════════════════════════ -->
-    <div id="view-messages" class="view">
+    <div id="view-messages" class="view" style="overflow:hidden">
         <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
             <div class="flex items-center justify-between">
                 <div>
@@ -598,13 +591,10 @@
                 <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-lg">☀️</button>
             </div>
         </div>
-        <div id="msgList" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" style="padding-bottom:80px"></div>
-    </div>
+        <div id="msgList" class="flex-1 overflow-y-auto px-4 py-4 space-y-3"></div>
 
-</div>
-
-<!-- BARRA INPUT MENSAJES -->
-<div id="msg-bar" class="msg-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0">
+        <!-- BARRA INPUT MENSAJES (dentro del flex column, siempre visible al fondo) -->
+        <div id="msg-bar" class="msg-bar">
     <!-- Tira de contexto: responder o editar -->
     <div id="msg-context-strip" style="display:none;align-items:center;gap:8px;padding:7px 12px 6px;border-bottom:1px solid rgba(148,163,184,0.2);background:rgba(99,102,241,0.07)">
         <div style="width:3px;align-self:stretch;background:#6366f1;border-radius:4px;flex-shrink:0"></div>
@@ -633,7 +623,9 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
     </div>
-</div>
+        </div><!-- /msg-bar -->
+    </div><!-- /view-messages -->
+</div><!-- /max-w-md container -->
 
 <!-- BARRA DE NAVEGACIÓN -->
 <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">
@@ -767,9 +759,7 @@
             const nav = document.getElementById(`nav-${v}`);
             if(nav) nav.classList.toggle('active', v===name);
         });
-        const msgBar = document.getElementById('msg-bar');
-        if(name === 'messages') { msgBar.classList.add('show'); markMessagesRead(); renderMessages(); }
-        else msgBar.classList.remove('show');
+        if(name === 'messages') { updateMsgViewHeight(); markMessagesRead(); renderMessages(); }
         if(name==='calendar') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderCalendar(); }
         if(name==='payments') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderPayments(); }
         if(name==='settings') loadSettingsForm();
@@ -1383,14 +1373,11 @@
         list.scrollTop = list.scrollHeight;
     }
 
-    function applyUpdate() {
-        const reg = window._swReg;
-        if(reg && reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        } else {
-            window.location.reload();
-        }
+    function updateMsgViewHeight() {
+        const el = document.getElementById('view-messages');
+        if(el) el.style.height = (window.innerHeight - 72) + 'px';
     }
+    window.addEventListener('resize', updateMsgViewHeight);
 
     function sendMessage() {
         const input = document.getElementById('msgInput');
@@ -1939,7 +1926,7 @@
             }, 650);
         }, 1800);
 
-        initDark(); load(); renderCalendar(); updateUserAvatar();
+        initDark(); load(); renderCalendar(); updateUserAvatar(); updateMsgViewHeight();
 
         // Detectar si la versión de la app cambió respecto a la anterior visita
         const currentVersion = document.querySelector('meta[name="app-version"]')?.content || '';
@@ -1949,48 +1936,29 @@
         }
         if(currentVersion) localStorage.setItem('ninera_app_version', currentVersion);
 
-        // Service Worker con estrategia network-first para HTML
+        // Service Worker: registrar controllerchange ANTES de register() para no perder el evento
         if('serviceWorker' in navigator) {
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if(refreshing) return;
+                refreshing = true;
+                // location.replace hace una navegación limpia que el nuevo SW intercepta
+                location.replace(location.href);
+            });
+
             const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
             if(reg) {
                 window._swReg = reg;
-
-                // Función para mostrar el banner de actualización
-                function showUpdateBanner() {
-                    const b = document.getElementById('update-banner');
-                    if(b) b.style.display = 'flex';
-                }
-
-                // Si ya hay un SW en espera al cargar (ej: recargar manual), mostrar banner
-                if(reg.waiting) showUpdateBanner();
-
-                // Cuando el navegador descarga un nuevo SW
-                reg.addEventListener('updatefound', () => {
-                    const newWorker = reg.installing;
-                    if(!newWorker) return;
-                    newWorker.addEventListener('statechange', () => {
-                        // Cuando termina de instalarse y queda en espera
-                        if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            showUpdateBanner();
-                        }
-                    });
-                });
-
-                // Cuando el nuevo SW toma control → recargar para servir nuevo HTML
-                let refreshing = false;
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if(refreshing) return;
-                    refreshing = true;
-                    window.location.reload();
-                });
-
-                // Al volver a la app → verificar si hay nuevo SW + sync de datos
+                // Buscar actualizaciones al volver a primer plano + cada 60s
                 document.addEventListener('visibilitychange', () => {
                     if(document.visibilityState === 'visible') {
                         reg.update().catch(()=>{});
                         syncRealTime();
                     }
                 });
+                setInterval(() => {
+                    if(document.visibilityState === 'visible') reg.update().catch(()=>{});
+                }, 60000);
             }
         }
 

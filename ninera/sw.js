@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ninera-registro-v11';
+const CACHE_NAME = 'ninera-registro-v12';
 const SUPABASE_URL = "https://lpulmjzboogixbdxxayo.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdWxtanpib29naXhiZHh4YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjY0NzMsImV4cCI6MjA5MTI0MjQ3M30.vjebyQb4Bb62ZQlNaJZveuxdBYDOmtC4bM7uwAilDzY";
 const CLOUD_ID = 'ninera';
@@ -53,7 +53,7 @@ async function dbSet(key, value) {
 // ── Install ──────────────────────────────────────────────────────────────
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(STATIC_ASSETS)));
-  // No llamamos skipWaiting() aquí; dejamos que la app lo dispare con SKIP_WAITING
+  self.skipWaiting(); // toma control inmediato; la página recarga vía controllerchange
 });
 
 // ── Activate ─────────────────────────────────────────────────────────────
