@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.7.0">
+    <meta name="app-version" content="2.8.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -693,7 +693,7 @@
         </div>
         <div>
             <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nota (opcional)</label>
-            <input type="text" id="inputNote" class="input-field" placeholder="Ej: llegó tarde, horas extra...">
+            <textarea id="inputNote" rows="1" class="input-field" placeholder="Ej: llegó tarde, horas extra..." oninput="autoGrowMsg(this)" style="resize:none;overflow-y:hidden;line-height:1.5;max-height:138px"></textarea>
         </div>
         <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-2xl px-4 py-3">
             <span class="font-extrabold text-sm text-slate-700 dark:text-slate-200">¿Ya pagado?</span>
@@ -935,7 +935,7 @@
             let rows = '';
             if(entry.amount)  rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Monto</span><span class="font-extrabold text-slate-800 dark:text-white text-sm">${fmt(entry.amount)}</span></div>`;
             if(entry.paidBy)  rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Pagó</span><span class="font-extrabold text-slate-800 dark:text-white text-sm">${entry.paidBy}</span></div>`;
-            if(entry.note)    rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Nota</span><span class="font-semibold text-slate-600 dark:text-slate-300 text-sm italic">"${entry.note}"</span></div>`;
+            if(entry.note)    rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Nota</span><span class="font-semibold text-slate-600 dark:text-slate-300 text-sm italic" style="white-space:pre-line">"${entry.note}"</span></div>`;
             if(entry.savedBy) rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Guardó</span><span class="font-semibold text-slate-500 dark:text-slate-400 text-sm">${entry.savedBy}</span></div>`;
             detailsEl.innerHTML = rows;
         }
@@ -1087,7 +1087,9 @@
         editPaid = entry.isPaid||false;
         const initAmt = entry.amount || appData.settings.rate || 0;
         document.getElementById('inputAmount').value = initAmt ? Number(initAmt).toLocaleString('es-CL') : '';
-        document.getElementById('inputNote').value = entry.note||'';
+        const noteEl = document.getElementById('inputNote');
+        noteEl.value = entry.note||'';
+        autoGrowMsg(noteEl);
         const sel = document.getElementById('inputPaidBy');
         sel.innerHTML = '<option value="">Sin pago aún</option>';
         (appData.settings.payers||[]).forEach(p => {
