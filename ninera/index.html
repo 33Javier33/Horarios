@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.0.0">
+    <meta name="app-version" content="2.1.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -609,6 +609,10 @@
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         <input type="file" accept="image/*" id="photoInput" class="hidden" onchange="attachPhoto(event)">
     </label>
+    <!-- Borrar último mensaje propio -->
+    <button id="delete-last-msg-btn" onclick="deleteLastMessage()" title="Borrar mi último mensaje" style="display:none" class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-red-400">
+        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>
     <!-- Input texto -->
     <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje..." oninput="autoGrowMsg(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" class="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 dark:text-white text-sm font-semibold outline-none min-w-0 resize-none" style="line-height:1.45;overflow-y:hidden;max-height:138px"></textarea>
     <!-- Enviar -->
@@ -723,6 +727,7 @@
         if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
         if(!appData.entries) appData.entries = {};
         if(!appData.messages) appData.messages = [];
+        if(!appData.seenBy) appData.seenBy = {};
     }
 
     // ═══════════════════════════════════
@@ -1288,25 +1293,58 @@
         const msgs = (appData.messages || []);
         if(!msgs.length) {
             list.innerHTML = `<div class="text-center text-sm text-slate-300 dark:text-slate-600 py-16">Sin mensajes aún</div>`;
+            updateDeleteBtn();
             return;
         }
+
+        const seenBy = appData.seenBy || {};
+
         list.innerHTML = msgs.map(m => {
             const isMe = m.from === me;
             const time = m.ts ? new Date(m.ts).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}) : '';
             const dateLabel = m.ts ? new Date(m.ts).toLocaleDateString('es-CL',{day:'numeric',month:'short'}) : '';
             const photo = m.photo ? `<img src="${m.photo}" class="max-w-[180px] rounded-xl mt-1 cursor-pointer" onclick="this.style.maxWidth=this.style.maxWidth==='100%'?'180px':'100%'">` : '';
             const text = m.text ? `<p class="text-sm leading-snug break-words">${m.text}</p>` : '';
+
+            // ✓✓ recibo de lectura (solo mensajes propios)
+            let ticks = '';
+            if(isMe && m.ts) {
+                const readByOther = Object.entries(seenBy).some(([user, ts]) => user !== me && ts >= m.ts);
+                ticks = `<span style="color:${readByOther ? '#6366f1' : '#94a3b8'};font-size:11px;margin-left:3px" title="${readByOther ? 'Leído' : 'Enviado'}">✓✓</span>`;
+            }
+
+            // Reacciones
+            const reactions = m.reactions || {};
+            const chips = Object.entries(reactions)
+                .filter(([, users]) => users.length > 0)
+                .map(([emoji, users]) => {
+                    const hasMe = me && users.includes(me);
+                    return `<button onclick="toggleReaction('${m.ts}','${emoji}')" style="background:${hasMe ? 'rgba(99,102,241,0.15)' : 'rgba(148,163,184,0.1)'};border:1px solid ${hasMe ? 'rgba(99,102,241,0.5)' : 'transparent'};border-radius:999px;padding:2px 8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">${emoji}<span style="font-size:10px;font-weight:700;color:${hasMe ? '#6366f1' : '#64748b'}">${users.length}</span></button>`;
+                }).join('');
+            const addBtn = `<button onclick="showReactionPicker('${m.ts}',event)" style="background:rgba(148,163,184,0.1);border-radius:999px;padding:2px 7px;font-size:11px;cursor:pointer;opacity:0.6;line-height:1.6">😊+</button>`;
+            const reactRow = `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;${isMe ? 'justify-content:flex-end' : ''}">${chips}${addBtn}</div>`;
+
             return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
                 <div class="max-w-[78%]">
                     ${!isMe ? `<p class="text-[10px] font-extrabold text-slate-400 mb-1 ml-2">${m.from||'?'}</p>` : ''}
                     <div class="${isMe ? 'chat-bubble-me' : 'chat-bubble-other'} px-4 py-2.5 shadow-sm">
                         ${photo}${text}
                     </div>
-                    <p class="text-[9px] text-slate-400 mt-0.5 ${isMe ? 'text-right mr-1' : 'ml-2'}">${dateLabel} ${time}</p>
+                    ${reactRow}
+                    <p class="text-[9px] text-slate-400 mt-0.5 ${isMe ? 'text-right mr-1' : 'ml-2'}">${dateLabel} ${time}${ticks}</p>
                 </div>
             </div>`;
         }).join('');
         list.scrollTop = list.scrollHeight;
+        updateDeleteBtn();
+    }
+
+    function updateDeleteBtn() {
+        const me = myIdentity();
+        const msgs = appData.messages || [];
+        const hasMyMsg = me && msgs.some(m => m.from === me);
+        const btn = document.getElementById('delete-last-msg-btn');
+        if(btn) btn.style.display = hasMyMsg ? 'flex' : 'none';
     }
 
     function sendMessage() {
@@ -1355,6 +1393,64 @@
         el.style.overflowY = el.scrollHeight > maxH ? 'auto' : 'hidden';
     }
 
+    function deleteLastMessage() {
+        const me = myIdentity();
+        if(!me) return;
+        const msgs = appData.messages || [];
+        for(let i = msgs.length - 1; i >= 0; i--) {
+            if(msgs[i].from === me) {
+                msgs.splice(i, 1);
+                save();
+                renderMessages();
+                return;
+            }
+        }
+    }
+
+    let _reactionPickerTs = null;
+    function showReactionPicker(msgTs, evt) {
+        evt.stopPropagation();
+        closeReactionPicker();
+        _reactionPickerTs = msgTs;
+        const emojis = ['👍','❤️','😂'];
+        const picker = document.createElement('div');
+        picker.id = 'reaction-picker';
+        picker.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;border-radius:999px;padding:8px 18px;display:flex;gap:14px;z-index:200;box-shadow:0 4px 24px rgba(0,0,0,0.5)';
+        emojis.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.textContent = emoji;
+            btn.style.cssText = 'font-size:26px;cursor:pointer;transition:transform 0.15s;background:none;border:none;padding:0';
+            btn.onmouseenter = () => { btn.style.transform = 'scale(1.35)'; };
+            btn.onmouseleave = () => { btn.style.transform = ''; };
+            btn.onclick = (e) => { e.stopPropagation(); toggleReaction(msgTs, emoji); closeReactionPicker(); };
+            picker.appendChild(btn);
+        });
+        document.body.appendChild(picker);
+        setTimeout(() => document.addEventListener('click', closeReactionPicker, { once: true }), 10);
+    }
+    function closeReactionPicker() {
+        const p = document.getElementById('reaction-picker');
+        if(p) p.remove();
+        _reactionPickerTs = null;
+    }
+    function toggleReaction(msgTs, emoji) {
+        const me = myIdentity();
+        if(!me) { showToast('Elige tu nombre primero'); return; }
+        const msg = (appData.messages || []).find(m => m.ts === msgTs);
+        if(!msg) return;
+        if(!msg.reactions) msg.reactions = {};
+        if(!msg.reactions[emoji]) msg.reactions[emoji] = [];
+        const idx = msg.reactions[emoji].indexOf(me);
+        if(idx >= 0) {
+            msg.reactions[emoji].splice(idx, 1);
+            if(!msg.reactions[emoji].length) delete msg.reactions[emoji];
+        } else {
+            msg.reactions[emoji].push(me);
+        }
+        save();
+        renderMessages();
+    }
+
     function clearPhoto() {
         currentPhotoData = null;
         document.getElementById('photoPreviewWrap').classList.add('hidden');
@@ -1389,6 +1485,12 @@
         if(msgs.length) {
             const lastTs = msgs[msgs.length-1].ts;
             localStorage.setItem('ninera_lastSeenMsg', lastTs);
+            const me = myIdentity();
+            if(me) {
+                if(!appData.seenBy) appData.seenBy = {};
+                appData.seenBy[me] = lastTs;
+                save();
+            }
             if('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 navigator.serviceWorker.controller.postMessage({ type: 'MARK_READ', lastTs });
             }
@@ -1427,11 +1529,21 @@
                 }
             }
 
-            // Mensajes: append-only — unir sin perder ninguno
+            // Mensajes: append-only — unir sin perder ninguno (preserva reacciones)
             const before = appData.messages.length;
             appData.messages = mergeMessages(appData.messages, cloud.messages);
             const newMsgCount = appData.messages.length - before;
             if(newMsgCount > 0) changed = true;
+
+            // seenBy: tomar el máximo ts por usuario
+            const cloudSeenBy = cloud.seenBy || {};
+            if(!appData.seenBy) appData.seenBy = {};
+            Object.entries(cloudSeenBy).forEach(([user, ts]) => {
+                if(!appData.seenBy[user] || ts > appData.seenBy[user]) {
+                    appData.seenBy[user] = ts;
+                    changed = true;
+                }
+            });
 
             if(changed) {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
@@ -1474,12 +1586,21 @@
     // SUPABASE SYNC
     // ═══════════════════════════════════
 
-    // Fusiona mensajes de dos arrays por timestamp (dedup)
+    // Fusiona mensajes de dos arrays por timestamp; hace union de reacciones
     function mergeMessages(a, b) {
-        const seen = new Set();
-        return [...(a||[]), ...(b||[])]
-            .filter(m => { if(seen.has(m.ts)) return false; seen.add(m.ts); return true; })
-            .sort((x,y) => x.ts.localeCompare(y.ts));
+        const map = new Map();
+        [...(a||[]), ...(b||[])].forEach(m => {
+            if(!map.has(m.ts)) { map.set(m.ts, Object.assign({}, m)); return; }
+            const ex = map.get(m.ts);
+            if(m.reactions) {
+                if(!ex.reactions) ex.reactions = {};
+                Object.entries(m.reactions).forEach(([emoji, users]) => {
+                    if(!ex.reactions[emoji]) ex.reactions[emoji] = [];
+                    users.forEach(u => { if(!ex.reactions[emoji].includes(u)) ex.reactions[emoji].push(u); });
+                });
+            }
+        });
+        return [...map.values()].sort((x,y) => x.ts.localeCompare(y.ts));
     }
 
     async function cloudFetch() {
@@ -1499,8 +1620,14 @@
             const cloud = remote.payload;
             // Entradas: unión — local gana en mismo día (acaba de guardarse)
             appData.entries = Object.assign({}, cloud.entries||{}, appData.entries||{});
-            // Mensajes: unión deduplicada
+            // Mensajes: unión deduplicada (preserva reacciones)
             appData.messages = mergeMessages(cloud.messages, appData.messages);
+            // seenBy: tomar el máximo ts por usuario
+            const remoteSeenBy = cloud.seenBy || {};
+            if(!appData.seenBy) appData.seenBy = {};
+            Object.entries(remoteSeenBy).forEach(([user, ts]) => {
+                if(!appData.seenBy[user] || ts > appData.seenBy[user]) appData.seenBy[user] = ts;
+            });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         }
 
