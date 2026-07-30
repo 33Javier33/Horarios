@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.4.0">
+    <meta name="app-version" content="2.5.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -34,6 +34,19 @@
         .dark html, .dark body { background: #020617; }
         .view { display: none !important; }
         .view.active { display: flex !important; flex-direction: column; }
+        /* Vista mensajes: fixed inset:0 reacciona al teclado en Android/iOS */
+        #view-messages.active {
+            position: fixed !important;
+            inset: 0;
+            max-width: 448px;
+            margin: 0 auto;
+            overflow: hidden;
+            z-index: 20;
+            padding-bottom: 72px; /* espacio para la barra de nav */
+            box-sizing: border-box;
+            background: white;
+        }
+        .dark #view-messages.active { background: #0f172a; }
         .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; max-height: 90vh; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 20px 20px 40px; z-index: 50; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); }
         .bottom-sheet.open { transform: translateY(0); }
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
@@ -581,7 +594,7 @@
     <!-- ══════════════════════════════ -->
     <!-- VISTA: MENSAJES               -->
     <!-- ══════════════════════════════ -->
-    <div id="view-messages" class="view" style="overflow:hidden">
+    <div id="view-messages" class="view">
         <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
             <div class="flex items-center justify-between">
                 <div>
@@ -759,7 +772,7 @@
             const nav = document.getElementById(`nav-${v}`);
             if(nav) nav.classList.toggle('active', v===name);
         });
-        if(name === 'messages') { updateMsgViewHeight(); markMessagesRead(); renderMessages(); }
+        if(name === 'messages') { markMessagesRead(); renderMessages(); }
         if(name==='calendar') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderCalendar(); }
         if(name==='payments') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderPayments(); }
         if(name==='settings') loadSettingsForm();
@@ -1373,11 +1386,6 @@
         list.scrollTop = list.scrollHeight;
     }
 
-    function updateMsgViewHeight() {
-        const el = document.getElementById('view-messages');
-        if(el) el.style.height = (window.innerHeight - 72) + 'px';
-    }
-    window.addEventListener('resize', updateMsgViewHeight);
 
     function sendMessage() {
         const input = document.getElementById('msgInput');
@@ -1926,7 +1934,7 @@
             }, 650);
         }, 1800);
 
-        initDark(); load(); renderCalendar(); updateUserAvatar(); updateMsgViewHeight();
+        initDark(); load(); renderCalendar(); updateUserAvatar();
 
         // Detectar si la versión de la app cambió respecto a la anterior visita
         const currentVersion = document.querySelector('meta[name="app-version"]')?.content || '';
