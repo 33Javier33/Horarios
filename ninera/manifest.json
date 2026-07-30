@@ -2,26 +2,38 @@
   "id": "ninera-registro",
   "name": "Registro Niñera",
   "short_name": "Niñera",
-  "description": "Registro de días trabajados, pagos y seguimiento por pagador.",
-  "version": "1.0.0",
+  "description": "Registro de días trabajados, pagos y mensajes. Sincronización en la nube.",
+  "version": "1.4.0",
+  "lang": "es",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait",
-  "background_color": "#f0fdf4",
+  "background_color": "#000000",
   "theme_color": "#10b981",
+  "categories": ["utilities", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
+    { "src": "../icons/icon2-72x72.png",   "type": "image/png", "sizes": "72x72",   "purpose": "any" },
+    { "src": "../icons/icon2-96x96.png",   "type": "image/png", "sizes": "96x96",   "purpose": "any" },
+    { "src": "../icons/icon2-128x128.png", "type": "image/png", "sizes": "128x128", "purpose": "any" },
+    { "src": "../icons/icon2-144x144.png", "type": "image/png", "sizes": "144x144", "purpose": "any" },
+    { "src": "../icons/icon2-152x152.png", "type": "image/png", "sizes": "152x152", "purpose": "any" },
+    { "src": "../icons/icon2-180x180.png", "type": "image/png", "sizes": "180x180", "purpose": "any" },
+    { "src": "../icons/icon2-192x192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "../icons/icon2-384x384.png", "type": "image/png", "sizes": "384x384", "purpose": "any" },
+    { "src": "../icons/icon2-512x512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "../icons/icon2-192x192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "../icons/icon2-512x512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ],
+  "shortcuts": [
     {
-      "src": "../icons/icon2-192x192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "../icons/icon2-512x512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
+      "name": "Calendario",
+      "short_name": "Calendario",
+      "description": "Ver calendario del mes",
+      "url": "./index.html",
+      "icons": [{ "src": "../icons/icon2-96x96.png", "sizes": "96x96" }]
     }
   ]
 }

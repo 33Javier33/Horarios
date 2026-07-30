@@ -1,8 +1,17 @@
-const CACHE_NAME = 'ninera-registro-v3';
+const CACHE_NAME = 'ninera-registro-v4';
 const ASSETS = [
   './index.html',
   './manifest.json',
   './bg.png',
+  '../icons/icon2-72x72.png',
+  '../icons/icon2-96x96.png',
+  '../icons/icon2-128x128.png',
+  '../icons/icon2-144x144.png',
+  '../icons/icon2-152x152.png',
+  '../icons/icon2-180x180.png',
+  '../icons/icon2-192x192.png',
+  '../icons/icon2-384x384.png',
+  '../icons/icon2-512x512.png',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'
 ];
@@ -21,7 +30,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
 
-// Permite activación inmediata cuando el usuario aprueba la actualización
+// Activación inmediata cuando el usuario aprueba la actualización
 self.addEventListener('message', (e) => {
   if(e.data === 'SKIP_WAITING') self.skipWaiting();
 });
