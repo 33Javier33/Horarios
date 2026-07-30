@@ -99,14 +99,6 @@
     </div>
 </div>
 
-<!-- BANNER DE ACTUALIZACIÓN -->
-<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:150;max-width:448px;margin:0 auto;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:8px;box-shadow:0 2px 12px rgba(0,0,0,0.15)">
-    <div>
-        <p style="font-size:13px;font-weight:800;margin:0">Nueva versión disponible 🚀</p>
-        <p style="font-size:10px;font-weight:600;opacity:0.8;margin:2px 0 0">Actualiza para obtener los últimos cambios</p>
-    </div>
-    <button onclick="applyUpdate()" style="background:#fff;color:#4f46e5;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap;font-family:inherit">Actualizar</button>
-</div>
 
 <!-- OVERLAY -->
 <div id="overlay" class="overlay" onclick="closeSheet()"></div>
@@ -1403,18 +1395,6 @@
         showToast('¡App instalada! 🎉');
     });
 
-    let pendingWorker = null;
-
-    function showUpdateBanner() {
-        const banner = document.getElementById('update-banner');
-        banner.style.display = 'flex';
-        // Empujar el contenido principal hacia abajo para no taparlo
-        document.querySelector('.max-w-md').style.paddingTop = '60px';
-    }
-    function applyUpdate() {
-        if(pendingWorker) pendingWorker.postMessage('SKIP_WAITING');
-    }
-
     window.onload = async () => {
         // Splash: mostrar 1.8s luego desvanecer + mostrar banner de instalación
         const splash = document.getElementById('splash');
@@ -1425,24 +1405,17 @@
 
         initDark(); load(); renderCalendar();
 
-        // Service Worker + detección de actualizaciones
+        // Mostrar toast si venimos de una actualización automática
+        if(sessionStorage.getItem('sw_updated')) {
+            sessionStorage.removeItem('sw_updated');
+            setTimeout(() => showToast('App actualizada ✅'), 800);
+        }
+
+        // Service Worker — actualización automática sin interacción
         if('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
             if(reg) {
-                // Ya había un worker esperando (ej: volvieron a abrir la app)
-                if(reg.waiting) { pendingWorker = reg.waiting; showUpdateBanner(); }
-
-                reg.addEventListener('updatefound', () => {
-                    const nw = reg.installing;
-                    nw.addEventListener('statechange', () => {
-                        if(nw.state === 'installed' && navigator.serviceWorker.controller) {
-                            pendingWorker = nw;
-                            showUpdateBanner();
-                        }
-                    });
-                });
-
-                // Al volver a la app → verificar update SW + sync inmediato
+                // Al volver a la app → verificar si existe nueva versión inmediatamente
                 document.addEventListener('visibilitychange', () => {
                     if(document.visibilityState === 'visible') {
                         reg.update().catch(()=>{});
@@ -1450,8 +1423,15 @@
                     }
                 });
 
-                // Cuando el nuevo SW toma control → recargar para aplicar cambios
-                navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+                // El SW nuevo llama skipWaiting() solo al instalarse (ver sw.js),
+                // lo que dispara controllerchange → la página se recarga automáticamente
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if(refreshing) return;
+                    refreshing = true;
+                    sessionStorage.setItem('sw_updated', '1');
+                    window.location.reload();
+                });
             }
         }
 

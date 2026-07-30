@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ninera-registro-v4';
+const CACHE_NAME = 'ninera-registro-v5';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -17,20 +17,26 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
+  // Cachear assets y activar de inmediato sin esperar a que se cierren pestañas
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(c => c.addAll(ASSETS))
+  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k))))
+    Promise.all([
+      // Eliminar cachés viejos
+      caches.keys().then(keys =>
+        Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k)))
+      ),
+      // Tomar control de todas las pestañas abiertas de inmediato
+      self.clients.claim()
+    ])
   );
 });
 
 self.addEventListener('fetch', (e) => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-});
-
-// Activación inmediata cuando el usuario aprueba la actualización
-self.addEventListener('message', (e) => {
-  if(e.data === 'SKIP_WAITING') self.skipWaiting();
 });
