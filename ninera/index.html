@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.1.0">
+    <meta name="app-version" content="2.2.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -82,6 +82,12 @@
     </style>
 </head>
 <body class="min-h-screen">
+
+<!-- BANNER DE ACTUALIZACIÓN -->
+<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;max-width:448px;margin:0 auto;z-index:400;background:linear-gradient(90deg,#4f46e5,#7c3aed);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 3px 16px rgba(79,70,229,0.45)">
+    <span style="font-size:13px;font-weight:700">✨ Nueva versión disponible</span>
+    <button onclick="applyUpdate()" style="background:#fff;color:#4f46e5;border-radius:10px;padding:5px 14px;font-size:12px;font-weight:800;white-space:nowrap;border:none;cursor:pointer">Actualizar ahora</button>
+</div>
 
 <!-- SPLASH SCREEN -->
 <div id="splash" style="position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s ease">
@@ -1347,6 +1353,15 @@
         if(btn) btn.style.display = hasMyMsg ? 'flex' : 'none';
     }
 
+    function applyUpdate() {
+        const reg = window._swReg;
+        if(reg && reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } else {
+            window.location.reload();
+        }
+    }
+
     function sendMessage() {
         const input = document.getElementById('msgInput');
         const text = input.value.trim();
@@ -1834,20 +1849,43 @@
         if('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
             if(reg) {
+                window._swReg = reg;
+
+                // Función para mostrar el banner de actualización
+                function showUpdateBanner() {
+                    const b = document.getElementById('update-banner');
+                    if(b) b.style.display = 'flex';
+                }
+
+                // Si ya hay un SW en espera al cargar (ej: recargar manual), mostrar banner
+                if(reg.waiting) showUpdateBanner();
+
+                // Cuando el navegador descarga un nuevo SW
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if(!newWorker) return;
+                    newWorker.addEventListener('statechange', () => {
+                        // Cuando termina de instalarse y queda en espera
+                        if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showUpdateBanner();
+                        }
+                    });
+                });
+
+                // Cuando el nuevo SW toma control → recargar para servir nuevo HTML
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if(refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
+                });
+
                 // Al volver a la app → verificar si hay nuevo SW + sync de datos
                 document.addEventListener('visibilitychange', () => {
                     if(document.visibilityState === 'visible') {
                         reg.update().catch(()=>{});
                         syncRealTime();
                     }
-                });
-
-                // Si el SW cambia (primera instalación u otro cambio en sw.js), recargar
-                let refreshing = false;
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if(refreshing) return;
-                    refreshing = true;
-                    window.location.reload();
                 });
             }
         }

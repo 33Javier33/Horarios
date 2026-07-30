@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ninera-registro-v9';
+const CACHE_NAME = 'ninera-registro-v10';
 const SUPABASE_URL = "https://lpulmjzboogixbdxxayo.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdWxtanpib29naXhiZHh4YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjY0NzMsImV4cCI6MjA5MTI0MjQ3M30.vjebyQb4Bb62ZQlNaJZveuxdBYDOmtC4bM7uwAilDzY";
 const CLOUD_ID = 'ninera';
@@ -53,7 +53,7 @@ async function dbSet(key, value) {
 // ── Install ──────────────────────────────────────────────────────────────
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(STATIC_ASSETS)));
-  self.skipWaiting();
+  // No llamamos skipWaiting() aquí; dejamos que la app lo dispare con SKIP_WAITING
 });
 
 // ── Activate ─────────────────────────────────────────────────────────────
@@ -85,10 +85,14 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
 
-// ── Mensaje desde la app: marcar mensajes leídos ─────────────────────────
+// ── Mensajes desde la app ────────────────────────────────────────────────
 self.addEventListener('message', (e) => {
-  if(e.data && e.data.type === 'MARK_READ' && e.data.lastTs) {
+  if(!e.data) return;
+  if(e.data.type === 'MARK_READ' && e.data.lastTs) {
     dbSet('lastSeenTs', e.data.lastTs);
+  }
+  if(e.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
 
