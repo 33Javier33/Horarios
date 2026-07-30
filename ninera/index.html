@@ -192,7 +192,8 @@
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Nube ☁️</p>
-                <button onclick="syncCloud('LOAD')" class="w-full py-3 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm mb-2">Forzar descarga desde nube</button>
+                <button onclick="syncCloud('UPLOAD')" class="w-full py-3 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm mb-2">Subir mis datos a la nube ↑</button>
+                <button onclick="syncCloud('MERGE')" class="w-full py-3 bg-indigo-500 text-white font-extrabold rounded-2xl text-sm">Sincronizar con la nube ↕</button>
             </div>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -838,21 +839,23 @@
         updateMsgBadge();
     }
 
-    // Polling mensajes desde nube cada 30s
+    // Polling cada 30s: merge silencioso de mensajes y entradas nuevas
     async function pollMessages() {
         try {
             const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
             const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload`, { headers });
             const rows = await res.json();
-            if(rows && rows[0] && rows[0].payload && rows[0].payload.messages) {
-                const remote = rows[0].payload.messages;
-                const localLen = (appData.messages||[]).length;
-                if(remote.length > localLen) {
-                    appData.messages = remote;
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-                    updateMsgBadge();
-                    if(currentViewName === 'messages') renderMessages();
-                }
+            if(!rows || !rows[0] || !rows[0].payload) return;
+            const cloud = rows[0].payload;
+            let changed = false;
+            // Merge mensajes
+            const seenTs = new Set((appData.messages||[]).map(m=>m.ts));
+            (cloud.messages||[]).forEach(m => { if(!seenTs.has(m.ts)) { appData.messages.push(m); changed=true; } });
+            if(changed) {
+                appData.messages.sort((a,b)=>a.ts.localeCompare(b.ts));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                updateMsgBadge();
+                if(currentViewName === 'messages') renderMessages();
             }
         } catch(e) {}
     }
@@ -860,29 +863,63 @@
     // ═══════════════════════════════════
     // SUPABASE SYNC
     // ═══════════════════════════════════
+    async function cloudPush() {
+        const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' };
+        await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ id: CLOUD_ID, payload: appData, updated_at: new Date().toISOString() })
+        });
+    }
+
     async function syncCloud(action) {
         try {
             const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' };
+
             if(action === 'SAVE') {
-                await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
-                    method: 'POST', headers,
-                    body: JSON.stringify({ id: CLOUD_ID, payload: appData, updated_at: new Date().toISOString() })
-                });
-            } else {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload`, { headers });
-                const rows = await res.json();
-                if(rows && rows[0] && rows[0].payload) {
-                    appData = rows[0].payload;
-                    if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
-                    if(!appData.entries) appData.entries = {};
-                    if(!appData.messages) appData.messages = [];
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-                    renderCalendar();
-                    updateMsgBadge();
-                    showToast('Datos sincronizados ☁️');
-                }
+                // Guardar silencioso tras cada cambio local
+                await cloudPush();
+                return;
             }
-        } catch(e) { console.warn('Sync error', e); }
+
+            // MERGE o UPLOAD: primero traemos la nube
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload`, { headers });
+            const rows = await res.json();
+            const cloud = (rows && rows[0] && rows[0].payload) ? rows[0].payload : null;
+
+            if(action === 'UPLOAD') {
+                // Subir local → nube sin tocar datos locales
+                await cloudPush();
+                showToast('Datos subidos a la nube ↑');
+                return;
+            }
+
+            // MERGE bidireccional
+            if(cloud) {
+                // Entradas: unión de claves; si hay conflicto en la misma fecha, gana local
+                const mergedEntries = Object.assign({}, cloud.entries||{}, appData.entries||{});
+                // Mensajes: unión deduplicada por ts, ordenada
+                const allMsgs = [...(cloud.messages||[]), ...(appData.messages||[])];
+                const seenTs = new Set();
+                const mergedMsgs = allMsgs.filter(m => { if(seenTs.has(m.ts)) return false; seenTs.add(m.ts); return true; })
+                                          .sort((a,b)=>a.ts.localeCompare(b.ts));
+                // Settings: tomar la nube si tiene datos más ricos (workerName distinto de default)
+                const cloudSettings = cloud.settings||{};
+                const localSettings = appData.settings||{};
+                const settings = (cloudSettings.workerName && cloudSettings.workerName !== 'Niñera' && cloudSettings.workerName !== localSettings.workerName)
+                    ? { ...cloudSettings, ...localSettings } // local gana en campos iguales
+                    : localSettings;
+                appData = { settings, entries: mergedEntries, messages: mergedMsgs };
+            }
+            if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
+            if(!appData.entries) appData.entries = {};
+            if(!appData.messages) appData.messages = [];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            // Subir el resultado mezclado de vuelta a la nube
+            await cloudPush();
+            renderCalendar();
+            updateMsgBadge();
+            if(action !== 'INIT') showToast('Sincronizado ↕️');
+        } catch(e) { console.warn('Sync error', e); showToast('Sin conexión 📵'); }
     }
 
     // ═══════════════════════════════════
@@ -899,7 +936,7 @@
     window.onload = async () => {
         if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
         initDark(); load(); renderCalendar();
-        await syncCloud('LOAD');
+        await syncCloud('INIT');
         updateMsgBadge();
         setInterval(pollMessages, 30000);
     };
