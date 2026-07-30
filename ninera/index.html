@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.2.0">
+    <meta name="app-version" content="2.3.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -63,7 +63,7 @@
         .chat-bubble-me { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-radius:18px 18px 4px 18px; }
         .chat-bubble-other { background:#e8edf5; color:#0f172a; border-radius:18px 18px 18px 4px; }
         .dark .chat-bubble-other { background:#1e293b; color:#f1f5f9; }
-        .msg-bar { position:fixed; bottom:72px; left:0; right:0; max-width:448px; margin:0 auto; background:#fff; border-top:1.5px solid #cbd5e1; padding:8px 12px 8px; z-index:20; display:none; gap:8px; align-items:flex-end; }
+        .msg-bar { position:fixed; bottom:72px; left:0; right:0; max-width:448px; margin:0 auto; background:#fff; border-top:1.5px solid #cbd5e1; z-index:20; display:none; flex-direction:column; overflow:hidden; border-radius:16px 16px 0 0; }
         .dark .msg-bar { background:#0f172a; border-color:#1e293b; }
         .msg-bar.show { display:flex; }
         .badge { position:absolute; top:-3px; right:-3px; background:#ef4444; color:#fff; border-radius:9999px; min-width:15px; height:15px; font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center; padding:0 3px; line-height:1; }
@@ -604,27 +604,35 @@
 </div>
 
 <!-- BARRA INPUT MENSAJES -->
-<div id="msg-bar" class="msg-bar">
-    <!-- Preview foto adjunta -->
-    <div id="photoPreviewWrap" class="hidden relative shrink-0">
-        <img id="photoPreview" class="w-10 h-10 object-cover rounded-xl border-2 border-indigo-300">
-        <button onclick="clearPhoto()" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center">✕</button>
+<div id="msg-bar" class="msg-bar" style="flex-direction:column;align-items:stretch;gap:0;padding:0">
+    <!-- Tira de contexto: responder o editar -->
+    <div id="msg-context-strip" style="display:none;align-items:center;gap:8px;padding:7px 12px 6px;border-bottom:1px solid rgba(148,163,184,0.2);background:rgba(99,102,241,0.07)">
+        <div style="width:3px;align-self:stretch;background:#6366f1;border-radius:4px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+            <p id="msg-context-label" style="font-size:10px;font-weight:800;color:#6366f1;margin:0 0 1px"></p>
+            <p id="msg-context-text" style="font-size:12px;color:#64748b;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
+        </div>
+        <button onclick="cancelMsgContext()" style="color:#94a3b8;font-size:16px;line-height:1;background:none;border:none;cursor:pointer;padding:0 2px;flex-shrink:0">✕</button>
     </div>
-    <!-- Botón cámara/galería -->
-    <label class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 cursor-pointer text-slate-500 dark:text-slate-300">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        <input type="file" accept="image/*" id="photoInput" class="hidden" onchange="attachPhoto(event)">
-    </label>
-    <!-- Borrar último mensaje propio -->
-    <button id="delete-last-msg-btn" onclick="deleteLastMessage()" title="Borrar mi último mensaje" style="display:none" class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-red-400">
-        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-    </button>
-    <!-- Input texto -->
-    <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje..." oninput="autoGrowMsg(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" class="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 dark:text-white text-sm font-semibold outline-none min-w-0 resize-none" style="line-height:1.45;overflow-y:hidden;max-height:138px"></textarea>
-    <!-- Enviar -->
-    <button onclick="sendMessage()" class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-indigo-600 text-white">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
+    <!-- Fila de inputs -->
+    <div style="display:flex;align-items:flex-end;gap:8px;padding:8px 12px 8px">
+        <!-- Preview foto adjunta -->
+        <div id="photoPreviewWrap" class="hidden relative shrink-0">
+            <img id="photoPreview" class="w-10 h-10 object-cover rounded-xl border-2 border-indigo-300">
+            <button onclick="clearPhoto()" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center">✕</button>
+        </div>
+        <!-- Botón cámara/galería -->
+        <label class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 cursor-pointer text-slate-500 dark:text-slate-300">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <input type="file" accept="image/*" id="photoInput" class="hidden" onchange="attachPhoto(event)">
+        </label>
+        <!-- Input texto (Enter = nueva línea, botón enviar para enviar) -->
+        <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje..." oninput="autoGrowMsg(this)" class="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 dark:text-white text-sm font-semibold outline-none min-w-0 resize-none" style="line-height:1.45;overflow-y:hidden;max-height:138px"></textarea>
+        <!-- Enviar -->
+        <button onclick="sendMessage()" class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-indigo-600 text-white">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+    </div>
 </div>
 
 <!-- BARRA DE NAVEGACIÓN -->
@@ -1290,6 +1298,10 @@
         });
     }
 
+    let _activeActionTs = null; // mensaje con acciones desplegadas
+    let _editingTs = null;      // mensaje en modo edición
+    let _replyingTo = null;     // { ts, from, text } del mensaje citado
+
     function renderMessages() {
         const me = myIdentity();
         const label = document.getElementById('msgIdentityLabel');
@@ -1299,7 +1311,6 @@
         const msgs = (appData.messages || []);
         if(!msgs.length) {
             list.innerHTML = `<div class="text-center text-sm text-slate-300 dark:text-slate-600 py-16">Sin mensajes aún</div>`;
-            updateDeleteBtn();
             return;
         }
 
@@ -1309,8 +1320,19 @@
             const isMe = m.from === me;
             const time = m.ts ? new Date(m.ts).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}) : '';
             const dateLabel = m.ts ? new Date(m.ts).toLocaleDateString('es-CL',{day:'numeric',month:'short'}) : '';
-            const photo = m.photo ? `<img src="${m.photo}" class="max-w-[180px] rounded-xl mt-1 cursor-pointer" onclick="this.style.maxWidth=this.style.maxWidth==='100%'?'180px':'100%'">` : '';
-            const text = m.text ? `<p class="text-sm leading-snug break-words">${m.text}</p>` : '';
+            const photo = m.photo ? `<img src="${m.photo}" class="max-w-[180px] rounded-xl mt-1 cursor-pointer" onclick="event.stopPropagation();this.style.maxWidth=this.style.maxWidth==='100%'?'180px':'100%'">` : '';
+            const editedLabel = m.edited ? `<span style="font-size:9px;opacity:0.55;margin-left:3px">(editado)</span>` : '';
+            const text = m.text ? `<p class="text-sm leading-snug break-words">${m.text}${editedLabel}</p>` : '';
+
+            // Cita de respuesta dentro del bubble
+            let quotedBlock = '';
+            if(m.replyTo) {
+                const qText = m.replyTo.text ? m.replyTo.text.slice(0, 80) + (m.replyTo.text.length > 80 ? '…' : '') : '📷 Foto';
+                quotedBlock = `<div style="border-left:3px solid rgba(99,102,241,0.7);padding:4px 8px;margin-bottom:6px;border-radius:0 6px 6px 0;background:rgba(99,102,241,0.1);cursor:pointer" onclick="event.stopPropagation();scrollToMsg('${m.replyTo.ts}')">
+                    <p style="font-size:10px;font-weight:800;color:#6366f1;margin:0 0 2px">${m.replyTo.from||'?'}</p>
+                    <p style="font-size:11px;opacity:0.75;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${qText}</p>
+                </div>`;
+            }
 
             // ✓✓ recibo de lectura (solo mensajes propios)
             let ticks = '';
@@ -1325,32 +1347,40 @@
                 .filter(([, users]) => users.length > 0)
                 .map(([emoji, users]) => {
                     const hasMe = me && users.includes(me);
-                    return `<button onclick="toggleReaction('${m.ts}','${emoji}')" style="background:${hasMe ? 'rgba(99,102,241,0.15)' : 'rgba(148,163,184,0.1)'};border:1px solid ${hasMe ? 'rgba(99,102,241,0.5)' : 'transparent'};border-radius:999px;padding:2px 8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">${emoji}<span style="font-size:10px;font-weight:700;color:${hasMe ? '#6366f1' : '#64748b'}">${users.length}</span></button>`;
+                    return `<button onclick="event.stopPropagation();toggleReaction('${m.ts}','${emoji}')" style="background:${hasMe ? 'rgba(99,102,241,0.15)' : 'rgba(148,163,184,0.1)'};border:1px solid ${hasMe ? 'rgba(99,102,241,0.5)' : 'transparent'};border-radius:999px;padding:2px 8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">${emoji}<span style="font-size:10px;font-weight:700;color:${hasMe ? '#6366f1' : '#64748b'}">${users.length}</span></button>`;
                 }).join('');
-            const addBtn = `<button onclick="showReactionPicker('${m.ts}',event)" style="background:rgba(148,163,184,0.1);border-radius:999px;padding:2px 7px;font-size:11px;cursor:pointer;opacity:0.6;line-height:1.6">😊+</button>`;
+            const addBtn = `<button onclick="event.stopPropagation();showReactionPicker('${m.ts}',event)" style="background:rgba(148,163,184,0.1);border-radius:999px;padding:2px 7px;font-size:11px;cursor:pointer;opacity:0.6;line-height:1.6">😊+</button>`;
             const reactRow = `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;${isMe ? 'justify-content:flex-end' : ''}">${chips}${addBtn}</div>`;
 
-            return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-                <div class="max-w-[78%]">
+            // Botones de acción (aparecen al tocar el mensaje)
+            const showActions = m.ts === _activeActionTs;
+            const actBtnStyle = 'border:none;cursor:pointer;border-radius:10px;padding:5px 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;background:rgba(148,163,184,0.15);color:#475569';
+            const actBtnDanger = 'border:none;cursor:pointer;border-radius:10px;padding:5px 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,0.1);color:#ef4444';
+            const actionBar = showActions ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;${isMe ? 'justify-content:flex-end' : ''}">
+                <button onclick="event.stopPropagation();replyToMessage('${m.ts}')" style="${actBtnStyle}">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>Responder
+                </button>
+                ${isMe ? `<button onclick="event.stopPropagation();editMessage('${m.ts}')" style="${actBtnStyle}">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar
+                </button>
+                <button onclick="event.stopPropagation();deleteMessage('${m.ts}')" style="${actBtnDanger}">
+                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>Eliminar
+                </button>` : ''}
+            </div>` : '';
+
+            return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}" id="msg-${m.ts.replace(/[:.]/g,'_')}">
+                <div class="max-w-[82%]">
                     ${!isMe ? `<p class="text-[10px] font-extrabold text-slate-400 mb-1 ml-2">${m.from||'?'}</p>` : ''}
-                    <div class="${isMe ? 'chat-bubble-me' : 'chat-bubble-other'} px-4 py-2.5 shadow-sm">
-                        ${photo}${text}
+                    <div class="${isMe ? 'chat-bubble-me' : 'chat-bubble-other'} px-4 py-2.5 shadow-sm" onclick="toggleMsgActions('${m.ts}',event)" style="cursor:pointer">
+                        ${quotedBlock}${photo}${text}
                     </div>
                     ${reactRow}
+                    ${actionBar}
                     <p class="text-[9px] text-slate-400 mt-0.5 ${isMe ? 'text-right mr-1' : 'ml-2'}">${dateLabel} ${time}${ticks}</p>
                 </div>
             </div>`;
         }).join('');
         list.scrollTop = list.scrollHeight;
-        updateDeleteBtn();
-    }
-
-    function updateDeleteBtn() {
-        const me = myIdentity();
-        const msgs = appData.messages || [];
-        const hasMyMsg = me && msgs.some(m => m.from === me);
-        const btn = document.getElementById('delete-last-msg-btn');
-        if(btn) btn.style.display = hasMyMsg ? 'flex' : 'none';
     }
 
     function applyUpdate() {
@@ -1367,16 +1397,103 @@
         const text = input.value.trim();
         if(!text && !currentPhotoData) return;
         const me = myIdentity();
-        const msg = { from: me, text, photo: currentPhotoData||null, ts: new Date().toISOString() };
-        if(!appData.messages) appData.messages = [];
-        appData.messages.push(msg);
+
+        if(_editingTs) {
+            // Modo edición: actualizar mensaje existente
+            const msg = (appData.messages || []).find(m => m.ts === _editingTs);
+            if(msg) { msg.text = text; msg.edited = true; }
+            _editingTs = null;
+        } else {
+            // Mensaje nuevo
+            const msg = { from: me, text, photo: currentPhotoData||null, ts: new Date().toISOString() };
+            if(_replyingTo) msg.replyTo = _replyingTo;
+            if(!appData.messages) appData.messages = [];
+            appData.messages.push(msg);
+            localStorage.setItem('ninera_lastSeenMsg', msg.ts);
+        }
+
+        _replyingTo = null;
+        _activeActionTs = null;
         input.value = '';
         input.style.height = 'auto';
         input.style.overflowY = 'hidden';
         clearPhoto();
+        hideMsgContextStrip();
         save();
-        localStorage.setItem('ninera_lastSeenMsg', msg.ts);
         renderMessages();
+    }
+
+    function toggleMsgActions(ts, evt) {
+        if(evt) evt.stopPropagation();
+        closeReactionPicker();
+        _activeActionTs = _activeActionTs === ts ? null : ts;
+        renderMessages();
+        // Cerrar al tocar fuera
+        if(_activeActionTs) {
+            setTimeout(() => document.addEventListener('click', closeMsgActions, { once: true }), 10);
+        }
+    }
+    function closeMsgActions() {
+        if(!_activeActionTs) return;
+        _activeActionTs = null;
+        renderMessages();
+    }
+
+    function replyToMessage(ts) {
+        const msg = (appData.messages || []).find(m => m.ts === ts);
+        if(!msg) return;
+        _replyingTo = { ts: msg.ts, from: msg.from, text: msg.text || '' };
+        _editingTs = null;
+        _activeActionTs = null;
+        document.getElementById('msg-context-label').textContent = 'Responder a ' + (msg.from || '?');
+        document.getElementById('msg-context-text').textContent = msg.text || '📷 Foto';
+        document.getElementById('msg-context-strip').style.display = 'flex';
+        renderMessages();
+        document.getElementById('msgInput').focus();
+    }
+
+    function editMessage(ts) {
+        const msg = (appData.messages || []).find(m => m.ts === ts);
+        if(!msg) return;
+        _editingTs = ts;
+        _replyingTo = null;
+        _activeActionTs = null;
+        document.getElementById('msg-context-label').textContent = 'Editando mensaje';
+        document.getElementById('msg-context-text').textContent = msg.text || '';
+        document.getElementById('msg-context-strip').style.display = 'flex';
+        const input = document.getElementById('msgInput');
+        input.value = msg.text || '';
+        renderMessages();
+        autoGrowMsg(input);
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }
+
+    function deleteMessage(ts) {
+        const msgs = appData.messages || [];
+        const idx = msgs.findIndex(m => m.ts === ts);
+        if(idx < 0) return;
+        msgs.splice(idx, 1);
+        if(_activeActionTs === ts) _activeActionTs = null;
+        save();
+        renderMessages();
+    }
+
+    function cancelMsgContext() {
+        _replyingTo = null;
+        _editingTs = null;
+        hideMsgContextStrip();
+        const input = document.getElementById('msgInput');
+        if(input) { input.value = ''; input.style.height = 'auto'; }
+    }
+    function hideMsgContextStrip() {
+        document.getElementById('msg-context-strip').style.display = 'none';
+    }
+
+    function scrollToMsg(ts) {
+        const safeId = 'msg-' + ts.replace(/[:.]/g,'_');
+        const el = document.getElementById(safeId);
+        if(el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.transition = 'background 0.3s'; el.style.background = 'rgba(99,102,241,0.12)'; setTimeout(() => el.style.background = '', 900); }
     }
 
     function attachPhoto(e) {
@@ -1408,19 +1525,6 @@
         el.style.overflowY = el.scrollHeight > maxH ? 'auto' : 'hidden';
     }
 
-    function deleteLastMessage() {
-        const me = myIdentity();
-        if(!me) return;
-        const msgs = appData.messages || [];
-        for(let i = msgs.length - 1; i >= 0; i--) {
-            if(msgs[i].from === me) {
-                msgs.splice(i, 1);
-                save();
-                renderMessages();
-                return;
-            }
-        }
-    }
 
     let _reactionPickerTs = null;
     function showReactionPicker(msgTs, evt) {
