@@ -30,26 +30,39 @@
         .day-cell.worked.paid { background: linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:#6366f1; }
         .day-cell.not-worked { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
         .dark .day-cell.not-worked { background:#450a0a; color:#fca5a5; border-color:#7f1d1d; }
-        .day-cell.empty-day { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
+        .day-cell.empty-day { background:#fff; color:#334155; border-color:#cbd5e1; }
         .dark .day-cell.empty-day { background:#1e293b; color:#475569; border-color:#334155; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap:5px; }
-        .input-field { width:100%; padding:14px 16px; border-radius:16px; background:#f1f5f9; border:none; font-family:inherit; font-size:15px; font-weight:600; outline:none; color:#1e293b; }
-        .dark .input-field { background:#1e293b; color:#f1f5f9; }
+        .input-field { width:100%; padding:14px 16px; border-radius:16px; background:#f8fafc; border:1.5px solid #cbd5e1; font-family:inherit; font-size:15px; font-weight:600; outline:none; color:#0f172a; }
+        .input-field:focus { border-color:#6366f1; background:#fff; }
+        .dark .input-field { background:#1e293b; color:#f1f5f9; border-color:#334155; }
+        .dark .input-field:focus { border-color:#6366f1; }
         .toggle-btn { flex:1; padding:12px; border-radius:14px; font-weight:800; font-size:13px; text-align:center; cursor:pointer; transition:all 0.2s; }
-        .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:8px 0 4px; cursor:pointer; transition:color 0.2s; color:#94a3b8; }
+        .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:8px 0 4px; cursor:pointer; transition:color 0.2s; color:#64748b; }
         .nav-btn.active { color:#6366f1; }
         .nav-btn svg { width:22px; height:22px; }
         .nav-btn span { font-size:10px; font-weight:800; }
         .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e293b; color:white; padding:10px 20px; border-radius:20px; font-size:13px; font-weight:700; z-index:100; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
         .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
         .chat-bubble-me { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-radius:18px 18px 4px 18px; }
-        .chat-bubble-other { background:#f1f5f9; color:#1e293b; border-radius:18px 18px 18px 4px; }
+        .chat-bubble-other { background:#e8edf5; color:#0f172a; border-radius:18px 18px 18px 4px; }
         .dark .chat-bubble-other { background:#1e293b; color:#f1f5f9; }
-        .msg-bar { position:fixed; bottom:72px; left:0; right:0; max-width:448px; margin:0 auto; background:#fff; border-top:1px solid #e2e8f0; padding:8px 12px 8px; z-index:20; display:none; gap:8px; align-items:flex-end; }
+        .msg-bar { position:fixed; bottom:72px; left:0; right:0; max-width:448px; margin:0 auto; background:#fff; border-top:1.5px solid #cbd5e1; padding:8px 12px 8px; z-index:20; display:none; gap:8px; align-items:flex-end; }
         .dark .msg-bar { background:#0f172a; border-color:#1e293b; }
         .msg-bar.show { display:flex; }
         .badge { position:absolute; top:-3px; right:-3px; background:#ef4444; color:#fff; border-radius:9999px; min-width:15px; height:15px; font-size:8px; font-weight:900; display:flex; align-items:center; justify-content:center; padding:0 3px; line-height:1; }
         .brand-footer { font-size:10px; font-weight:800; letter-spacing:0.4em; text-transform:uppercase; color:#94a3b8; }
+        /* Ayuda */
+        .help-section { background:#fff; border:1.5px solid #e2e8f0; border-radius:20px; overflow:hidden; margin-bottom:12px; }
+        .dark .help-section { background:#1e293b; border-color:#334155; }
+        .help-section-header { display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; user-select:none; }
+        .help-section-body { padding:0 16px 16px; display:none; }
+        .help-section-body.open { display:block; }
+        .help-tip { background:#f0fdf4; border-left:3px solid #10b981; border-radius:0 12px 12px 0; padding:10px 12px; margin-top:8px; font-size:13px; color:#065f46; font-weight:600; }
+        .dark .help-tip { background:#052e16; color:#6ee7b7; border-color:#059669; }
+        .help-warn { background:#fffbeb; border-left:3px solid #f59e0b; border-radius:0 12px 12px 0; padding:10px 12px; margin-top:8px; font-size:13px; color:#78350f; font-weight:600; }
+        .dark .help-warn { background:#1c1407; color:#fcd34d; border-color:#d97706; }
+        .color-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:middle; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -164,13 +177,13 @@
 
         <!-- Totales por pagador -->
         <div class="px-4 mt-4">
-            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Resumen del mes</p>
+            <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2">Resumen del mes</p>
             <div id="payerCards" class="grid grid-cols-2 gap-2 mb-4"></div>
         </div>
 
         <!-- Lista de pagos -->
         <div class="px-4">
-            <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Detalle</p>
+            <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2">Detalle</p>
             <div id="paymentList" class="space-y-1"></div>
         </div>
     </div>
@@ -233,9 +246,261 @@
                 <p class="text-[10px] text-slate-400 mt-1.5">Así aparecerán tus mensajes en el otro dispositivo.</p>
             </div>
 
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button onclick="setView('help')" class="w-full py-3 bg-slate-800 dark:bg-indigo-900 text-white font-extrabold rounded-2xl text-sm flex items-center justify-center gap-2">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Guía de uso · Ayuda
+                </button>
+            </div>
+
             <div class="pt-6 pb-4 flex items-center justify-center">
                 <p class="brand-footer">CarlosPN Interactive® 2026</p>
             </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <!-- VISTA: AYUDA                  -->
+    <!-- ══════════════════════════════ -->
+    <div id="view-help" class="view">
+        <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3 flex items-center gap-3">
+            <button onclick="setView('settings')" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0 text-lg font-bold">‹</button>
+            <div>
+                <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Guía de uso</h1>
+                <p class="text-xs font-semibold text-slate-400">Todo lo que necesitas saber</p>
+            </div>
+        </div>
+
+        <div class="px-4 mt-5 pb-8 space-y-1">
+
+            <!-- 1. Qué es la app -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">📱</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">¿Qué es Registro Niñera?</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Introducción a la aplicación</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">Esta aplicación permite registrar los días trabajados, los montos a pagar y quién realizó el pago (Papá, Mamá u otro). También incluye un sistema de mensajes para comunicarse entre el empleador y la trabajadora, todo sincronizado en la nube.</p>
+                    <div class="help-tip">💡 La app funciona sin internet y se sincroniza automáticamente cuando hay conexión.</div>
+                </div>
+            </div>
+
+            <!-- 2. Calendario -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">📅</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Calendario</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Cómo ver y navegar el mes</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">El calendario muestra todos los días del mes. Cada día tiene un color distinto según su estado:</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                            <span class="color-dot bg-emerald-500"></span><strong>Verde</strong> = Trabajó, pago pendiente
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                            <span class="color-dot bg-indigo-500"></span><strong>Morado</strong> = Trabajó y ya está pagado
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                            <span class="color-dot bg-red-300"></span><strong>Rojo</strong> = No trabajó ese día
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                            <span class="color-dot" style="background:#cbd5e1"></span><strong>Gris</strong> = Sin registro aún
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-3">Usa las flechas <strong>‹ ›</strong> para cambiar de mes. El botón <strong>"Hoy"</strong> vuelve al mes actual.</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-2">El resumen arriba muestra los <strong>días trabajados</strong>, el monto <strong>pendiente</strong> de pago y el <strong>pagado</strong> en el mes.</p>
+                </div>
+            </div>
+
+            <!-- 3. Registrar un día -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">✏️</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Cómo registrar un día</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Paso a paso para anotar trabajo y pagos</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-2"><strong>Toca cualquier día del calendario</strong> para abrir la pantalla de registro. Ahí encontrarás:</p>
+                    <div class="space-y-3 mt-2">
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">✅ ¿Trabajó o no trabajó?</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Toca el botón verde <em>"Trabajó"</em> o rojo <em>"No trabajó"</em> según corresponda.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">💵 Monto del día</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Escribe cuánto se paga por ese día. Si ya configuraste una tarifa diaria, aparece automáticamente.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">👤 ¿Quién pagó?</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Selecciona en la lista quién realizó el pago (Papá, Mamá u otro que hayas configurado). Si aún no se ha pagado, deja "Sin pago aún".</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">🔄 ¿Ya está pagado?</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Activa el interruptor al final si el pago ya se realizó. El día pasará de <strong>verde a morado</strong> en el calendario.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">📝 Nota (opcional)</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Puedes escribir una observación, por ejemplo: "llegó tarde", "horas extra", "día festivo".</p>
+                        </div>
+                    </div>
+                    <div class="help-tip mt-3">💡 Toca <strong>"Guardar"</strong> para confirmar los cambios. El botón <strong>"Borrar"</strong> elimina el registro de ese día por completo.</div>
+                </div>
+            </div>
+
+            <!-- 4. Pagos -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">💳</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Vista Pagos</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Resumen de lo pagado y lo pendiente</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">En la pestaña <strong>Pagos</strong> verás un resumen mensual:</p>
+                    <div class="space-y-2">
+                        <div class="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-amber-700 dark:text-amber-300">Pendiente</p>
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Días trabajados que aún no han sido pagados y cuánto se debe en total.</p>
+                        </div>
+                        <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-indigo-700 dark:text-indigo-300">Pagado por cada persona</p>
+                            <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">Una tarjeta por cada pagador con cuántos días pagó y el monto total.</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-3">Debajo del resumen hay un <strong>detalle día por día</strong> ordenado, separado entre pendientes y pagados por cada persona.</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-2">Toca cualquier registro para editarlo directamente.</p>
+                </div>
+            </div>
+
+            <!-- 5. Mensajes -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">💬</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Mensajes</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Chat y fotos entre empleador y trabajadora</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-2">La pestaña <strong>Mensajes</strong> permite enviar mensajes de texto y fotos entre los dispositivos que tengan la app instalada.</p>
+                    <div class="space-y-3 mt-2">
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">✉️ Enviar un mensaje</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Escribe en el campo de texto y toca el botón de enviar (flecha) o presiona Enter. Tus mensajes aparecen a la <strong>derecha en morado</strong>, los del otro dispositivo a la <strong>izquierda en gris</strong>.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">📷 Adjuntar una foto</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Toca el ícono de cámara para seleccionar una foto de tu galería o tomar una nueva. Aparecerá una previsualización pequeña. Puedes tocar la <strong>✕</strong> para cancelarla antes de enviar.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">🔴 Indicador de mensajes nuevos</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">El número rojo sobre el ícono de Mensajes indica cuántos mensajes nuevos tienes sin leer. Desaparece al abrir la pestaña.</p>
+                        </div>
+                    </div>
+                    <div class="help-warn mt-3">⚠️ Para que los mensajes sean correctamente identificados, cada dispositivo debe tener configurado su <strong>"Nombre en mensajes"</strong> en Configuración.</div>
+                    <div class="help-tip mt-2">💡 Los mensajes se sincronizan automáticamente cada 30 segundos si hay internet.</div>
+                </div>
+            </div>
+
+            <!-- 6. Configuración -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">⚙️</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Configuración</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Personalizar la aplicación</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <div class="space-y-3">
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">👤 Nombre de la trabajadora</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">El nombre que aparece en el encabezado del calendario. Ejemplo: "María".</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">💵 Tarifa diaria por defecto</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">El monto que se autocompletará al registrar un día trabajado. Se puede cambiar día a día si varía.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">👥 Quiénes pueden pagar</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Escribe un nombre por línea. Ejemplo: Papá, Mamá. Estos nombres aparecerán en la lista al registrar un pago.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">💬 Mi nombre en mensajes</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1"><strong>Importante:</strong> cada persona que use la app en un dispositivo distinto debe colocar aquí su nombre (ej: "Papá", "María"). Así los mensajes aparecen correctamente identificados en cada pantalla.</p>
+                        </div>
+                    </div>
+                    <div class="help-tip mt-3">💡 Siempre toca <strong>"Guardar cambios"</strong> después de modificar la configuración.</div>
+                </div>
+            </div>
+
+            <!-- 7. Sincronización nube -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">☁️</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Sincronización con la nube</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Cómo mantener datos al día en varios dispositivos</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">La app guarda los datos automáticamente en la nube cada vez que haces un cambio. También sincroniza al abrirla.</p>
+                    <div class="space-y-3">
+                        <div class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">↑ Subir mis datos a la nube</p>
+                            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Usa este botón si tienes datos en el teléfono que aún no han llegado a la nube (primera vez, o si usaste la app sin internet).</p>
+                        </div>
+                        <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-indigo-700 dark:text-indigo-300">↕ Sincronizar con la nube</p>
+                            <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Combina los datos del teléfono con los de la nube. Úsalo si hay dos dispositivos usando la app y quieres asegurarte de que ambos tengan todo.</p>
+                        </div>
+                    </div>
+                    <div class="help-warn mt-3">⚠️ Si no tienes internet, los datos se guardan solo localmente. Al recuperar conexión, usa <strong>"Subir mis datos"</strong> para sincronizar.</div>
+                </div>
+            </div>
+
+            <!-- 8. Respaldo local -->
+            <div class="help-section">
+                <div class="help-section-header" onclick="toggleHelp(this)">
+                    <span class="text-2xl">💾</span>
+                    <div class="flex-1">
+                        <p class="font-extrabold text-slate-800 dark:text-white text-sm">Respaldo local (JSON)</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Exportar e importar tus datos</p>
+                    </div>
+                    <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
+                </div>
+                <div class="help-section-body">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">Además de la nube, puedes guardar tus datos en un archivo en tu teléfono:</p>
+                    <div class="space-y-3">
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">📥 Copia JSON</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Descarga un archivo con todos tus registros. Guárdalo en un lugar seguro como WhatsApp, correo o Google Drive.</p>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200">📤 Restaurar</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Carga un archivo JSON previamente guardado para restaurar tus datos. <strong>Reemplaza los datos actuales</strong>, así que úsalo con cuidado.</p>
+                        </div>
+                    </div>
+                    <div class="help-tip mt-3">💡 Es buena práctica hacer una copia JSON de vez en cuando como respaldo extra.</div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -402,9 +667,11 @@
     // ═══════════════════════════════════
     function setView(name) {
         currentViewName = name;
-        ['calendar','payments','messages','settings'].forEach(v => {
-            document.getElementById(`view-${v}`).classList.toggle('active', v===name);
-            document.getElementById(`nav-${v}`).classList.toggle('active', v===name);
+        ['calendar','payments','messages','settings','help'].forEach(v => {
+            const el = document.getElementById(`view-${v}`);
+            if(el) el.classList.toggle('active', v===name);
+            const nav = document.getElementById(`nav-${v}`);
+            if(nav) nav.classList.toggle('active', v===name);
         });
         const msgBar = document.getElementById('msg-bar');
         if(name === 'messages') { msgBar.classList.add('show'); markMessagesRead(); renderMessages(); }
@@ -412,6 +679,13 @@
         if(name==='calendar') renderCalendar();
         if(name==='payments') renderPayments();
         if(name==='settings') loadSettingsForm();
+    }
+
+    function toggleHelp(header) {
+        const body = header.nextElementSibling;
+        const arrow = header.querySelector('.help-arrow');
+        const isOpen = body.classList.toggle('open');
+        arrow.style.transform = isOpen ? 'rotate(90deg)' : '';
     }
 
     // ═══════════════════════════════════
@@ -553,7 +827,7 @@
             .sort(([a],[b]) => a.localeCompare(b));
 
         if(!entries.length) {
-            document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-300 dark:text-slate-600 py-8">Sin registros este mes</div>`;
+            document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-8">Sin registros este mes</div>`;
             return;
         }
 
