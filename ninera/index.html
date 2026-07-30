@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="1.6.0">
+    <meta name="app-version" content="1.7.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -89,7 +89,7 @@
 
 <!-- PANTALLA DE IDENTIDAD -->
 <div id="identity-screen" style="display:none;opacity:0;position:fixed;inset:0;background:linear-gradient(160deg,#0f172a 0%,#1e293b 100%);z-index:195;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;transition:opacity 0.4s ease">
-    <img src="./bg.png" style="width:55%;max-width:200px;object-fit:contain;margin-bottom:28px;opacity:0.85" alt="">
+    <img src="./bg.png" style="width:55%;max-width:200px;object-fit:contain;margin-bottom:28px;mix-blend-mode:screen;opacity:0.92" alt="">
     <h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 6px;text-align:center">¿Quién está usando la app?</h2>
     <p style="color:#64748b;font-size:13px;font-weight:600;margin:0 0 28px;text-align:center;line-height:1.5">Selecciona tu nombre para que tus registros y mensajes queden identificados</p>
     <div id="identity-options" style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px"></div>
@@ -1073,6 +1073,8 @@
         return localStorage.getItem(MSG_IDENTITY_KEY) || 'Yo';
     }
 
+    let identityTimer = null;
+
     function showIdentityScreen() {
         const screen = document.getElementById('identity-screen');
         const container = document.getElementById('identity-options');
@@ -1087,18 +1089,80 @@
                 <span style="color:#fff;font-size:17px;font-weight:800">${name}</span>
             </button>`;
         }).join('');
+
+        // Botón cerrar con cuenta regresiva
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'identity-skip-btn';
+        closeBtn.style.cssText = 'margin-top:20px;background:transparent;border:1.5px solid rgba(255,255,255,0.15);color:#64748b;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;padding:10px 24px;border-radius:14px;width:100%;max-width:340px;transition:all 0.15s';
+        let secs = 15;
+        closeBtn.textContent = `Omitir (${secs}s)`;
+        closeBtn.onclick = () => closeIdentityScreen();
+        screen.appendChild(closeBtn);
+
+        if(identityTimer) clearInterval(identityTimer);
+        identityTimer = setInterval(() => {
+            secs--;
+            if(closeBtn.isConnected) closeBtn.textContent = `Omitir (${secs}s)`;
+            if(secs <= 0) closeIdentityScreen();
+        }, 1000);
+
         screen.style.display = 'flex';
         requestAnimationFrame(() => { screen.style.opacity = '1'; });
     }
 
+    function closeIdentityScreen() {
+        if(identityTimer) { clearInterval(identityTimer); identityTimer = null; }
+        const screen = document.getElementById('identity-screen');
+        screen.style.opacity = '0';
+        setTimeout(() => {
+            screen.style.display = 'none';
+            const btn = document.getElementById('identity-skip-btn');
+            if(btn) btn.remove();
+        }, 420);
+    }
+
     function selectIdentity(name) {
+        if(identityTimer) { clearInterval(identityTimer); identityTimer = null; }
         localStorage.setItem(MSG_IDENTITY_KEY, name);
         const screen = document.getElementById('identity-screen');
         screen.style.opacity = '0';
         setTimeout(() => {
             screen.style.display = 'none';
+            const btn = document.getElementById('identity-skip-btn');
+            if(btn) btn.remove();
             showToast('Hola, ' + name + ' 👋');
+            setupNotifications();
         }, 420);
+    }
+
+    async function setupNotifications() {
+        if(!('Notification' in window)) return;
+        if(Notification.permission === 'default') {
+            await Notification.requestPermission();
+        }
+        if(Notification.permission !== 'granted') return;
+        if(!('serviceWorker' in navigator)) return;
+        const reg = await navigator.serviceWorker.ready;
+        if('periodicSync' in reg) {
+            try {
+                await reg.periodicSync.register('check-ninera-msgs', { minInterval: 30 * 1000 });
+            } catch(e) {}
+        }
+    }
+
+    function notifyNewMessages(count, latest) {
+        if('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+        if(Notification.permission === 'granted') {
+            const body = count === 1
+                ? `${latest.from || 'Alguien'}: ${latest.text || '📷 Foto'}`
+                : `${count} mensajes nuevos`;
+            try {
+                new Notification('Registro Niñera 💬', {
+                    body, icon: '../icons/icon2-192x192.png',
+                    tag: 'ninera-msg', renotify: true
+                });
+            } catch(e) {}
+        }
     }
 
     function renderMessages() {
@@ -1188,7 +1252,13 @@
 
     function markMessagesRead() {
         const msgs = appData.messages || [];
-        if(msgs.length) localStorage.setItem('ninera_lastSeenMsg', msgs[msgs.length-1].ts);
+        if(msgs.length) {
+            const lastTs = msgs[msgs.length-1].ts;
+            localStorage.setItem('ninera_lastSeenMsg', lastTs);
+            if('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'MARK_READ', lastTs });
+            }
+        }
         updateMsgBadge();
     }
 
@@ -1222,11 +1292,15 @@
             // Mensajes: append-only — unir sin perder ninguno
             const before = appData.messages.length;
             appData.messages = mergeMessages(appData.messages, cloud.messages);
-            if(appData.messages.length !== before) changed = true;
+            const newMsgCount = appData.messages.length - before;
+            if(newMsgCount > 0) changed = true;
 
             if(changed) {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
                 updateMsgBadge();
+                if(newMsgCount > 0 && currentViewName !== 'messages') {
+                    notifyNewMessages(newMsgCount, appData.messages[appData.messages.length - 1]);
+                }
                 if(currentViewName === 'calendar') renderCalendar();
                 else if(currentViewName === 'payments') renderPayments();
                 else if(currentViewName === 'messages') renderMessages();
