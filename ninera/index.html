@@ -54,6 +54,20 @@
 </head>
 <body class="min-h-screen">
 
+<!-- SPLASH SCREEN -->
+<div id="splash" style="position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s ease">
+    <img src="./bg.png" style="width:80%;max-width:340px;object-fit:contain" alt="CarlosPN Interactive">
+</div>
+
+<!-- BANNER DE ACTUALIZACIÓN -->
+<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:150;max-width:448px;margin:0 auto;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:8px;box-shadow:0 2px 12px rgba(0,0,0,0.15)">
+    <div>
+        <p style="font-size:13px;font-weight:800;margin:0">Nueva versión disponible 🚀</p>
+        <p style="font-size:10px;font-weight:600;opacity:0.8;margin:2px 0 0">Actualiza para obtener los últimos cambios</p>
+    </div>
+    <button onclick="applyUpdate()" style="background:#fff;color:#4f46e5;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap;font-family:inherit">Actualizar</button>
+</div>
+
 <!-- OVERLAY -->
 <div id="overlay" class="overlay" onclick="closeSheet()"></div>
 <!-- TOAST -->
@@ -933,9 +947,47 @@
     // ═══════════════════════════════════
     // INIT
     // ═══════════════════════════════════
+    let pendingWorker = null;
+
+    function showUpdateBanner() {
+        const banner = document.getElementById('update-banner');
+        banner.style.display = 'flex';
+        // Empujar el contenido principal hacia abajo para no taparlo
+        document.querySelector('.max-w-md').style.paddingTop = '60px';
+    }
+    function applyUpdate() {
+        if(pendingWorker) pendingWorker.postMessage('SKIP_WAITING');
+    }
+
     window.onload = async () => {
-        if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+        // Splash: mostrar 1.8s luego desvanecer
+        const splash = document.getElementById('splash');
+        setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 650); }, 1800);
+
         initDark(); load(); renderCalendar();
+
+        // Service Worker + detección de actualizaciones
+        if('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
+            if(reg) {
+                // Ya había un worker esperando (ej: abrieron la app después de actualizar)
+                if(reg.waiting) { pendingWorker = reg.waiting; showUpdateBanner(); }
+
+                reg.addEventListener('updatefound', () => {
+                    const nw = reg.installing;
+                    nw.addEventListener('statechange', () => {
+                        if(nw.state === 'installed' && navigator.serviceWorker.controller) {
+                            pendingWorker = nw;
+                            showUpdateBanner();
+                        }
+                    });
+                });
+
+                // Cuando el nuevo SW toma control → recargar para aplicar cambios
+                navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+            }
+        }
+
         await syncCloud('INIT');
         updateMsgBadge();
         setInterval(pollMessages, 30000);
