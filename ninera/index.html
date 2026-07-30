@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.5.0">
+    <meta name="app-version" content="2.6.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -772,7 +772,7 @@
             const nav = document.getElementById(`nav-${v}`);
             if(nav) nav.classList.toggle('active', v===name);
         });
-        if(name === 'messages') { markMessagesRead(); renderMessages(); }
+        if(name === 'messages') { markMessagesRead(); renderMessages(); if(window._adjustMsgView) window._adjustMsgView(); }
         if(name==='calendar') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderCalendar(); }
         if(name==='payments') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderPayments(); }
         if(name==='settings') loadSettingsForm();
@@ -1922,6 +1922,38 @@
         showToast('¡App instalada! 🎉');
     });
 
+    // ── Teclado virtual: VisualViewport reporta la altura visible REAL ──
+    // En Android, window.innerHeight puede no cambiar al abrir el teclado,
+    // pero visualViewport.height sí. Anclamos la vista de mensajes a ella.
+    function setupKeyboardHandling() {
+        const vv = window.visualViewport;
+        if(!vv) return;
+        const adjust = () => {
+            const el = document.getElementById('view-messages');
+            if(!el) return;
+            if(!el.classList.contains('active')) {
+                el.style.height = ''; el.style.top = ''; el.style.paddingBottom = '';
+                return;
+            }
+            const keyboardOpen = vv.height < window.innerHeight - 120;
+            el.style.top = vv.offsetTop + 'px';
+            el.style.height = vv.height + 'px';
+            // Con teclado abierto la barra de nav queda tapada: usar todo el alto
+            el.style.paddingBottom = keyboardOpen ? '0px' : '72px';
+            const list = document.getElementById('msgList');
+            if(list && keyboardOpen) list.scrollTop = list.scrollHeight;
+        };
+        vv.addEventListener('resize', adjust);
+        vv.addEventListener('scroll', adjust);
+        // Reajustar también al enfocar/desenfocar el input
+        const input = document.getElementById('msgInput');
+        if(input) {
+            input.addEventListener('focus', () => setTimeout(adjust, 300));
+            input.addEventListener('blur', () => setTimeout(adjust, 300));
+        }
+        window._adjustMsgView = adjust;
+    }
+
     window.onload = async () => {
         // Splash: mostrar 1.8s luego desvanecer + mostrar banner de instalación
         const splash = document.getElementById('splash');
@@ -1934,7 +1966,7 @@
             }, 650);
         }, 1800);
 
-        initDark(); load(); renderCalendar(); updateUserAvatar();
+        initDark(); load(); renderCalendar(); updateUserAvatar(); setupKeyboardHandling();
 
         // Detectar si la versión de la app cambió respecto a la anterior visita
         const currentVersion = document.querySelector('meta[name="app-version"]')?.content || '';
