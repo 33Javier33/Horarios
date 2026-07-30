@@ -3,7 +3,7 @@
   "name": "Turnos Pro - Planificador",
   "short_name": "Turnos Pro",
   "description": "Gestión profesional de turnos, calendario laboral y sincronización en la nube.",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

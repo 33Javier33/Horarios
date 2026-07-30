@@ -262,6 +262,15 @@
             <button onclick="migrarDesdeGoogleSheets()" class="mt-2 w-full py-3 bg-amber-500 text-white font-bold text-[10px] rounded-xl uppercase">Migrar desde Google Sheets</button>
         </div>
 
+        <div class="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-800">
+            <h3 class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2">📲 App Registro Niñera</h3>
+            <p id="ninera-url-display" class="text-xs text-slate-600 dark:text-slate-300 font-mono break-all mb-3 select-all"></p>
+            <div class="flex gap-2">
+                <button onclick="copyNineraUrl()" class="flex-1 py-2.5 bg-emerald-600 text-white font-extrabold rounded-xl text-xs uppercase">Copiar link</button>
+                <a id="ninera-url-link" href="#" target="_blank" class="flex-1 py-2.5 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-extrabold rounded-xl text-xs uppercase text-center border border-emerald-200 dark:border-emerald-700">Abrir</a>
+            </div>
+        </div>
+
         <h3 class="text-xl font-extrabold mb-6">Opciones Locales</h3>
         <div class="grid grid-cols-1 gap-3">
             <button onclick="backupData()" class="bg-slate-800 text-white font-bold py-4 rounded-2xl uppercase text-xs italic">Copia de Seguridad JSON</button>
@@ -610,6 +619,7 @@
             const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => btn.getAttribute('onclick')?.includes(id));
             if(activeBtn) { activeBtn.classList.remove('text-slate-400'); activeBtn.classList.add('text-indigo-600', 'dark:text-indigo-400'); }
             // Al abrir vacaciones: actualizar nombre perfil e historial desde los datos cargados
+            if (id === 'sheet-data') { initNineraUrl(); }
             if (id === 'sheet-vacaciones') {
                 const nameEl = document.getElementById('vac-sheet-profile-name');
                 if (nameEl) nameEl.textContent = activeProfile.name;
@@ -1257,6 +1267,22 @@
         function saveNote() { activeProfile.notes[selectedDateForAssignment] = document.getElementById('note-textarea').value; saveToLocalStorage(); document.getElementById('shiftModal').classList.add('hidden'); renderCurrentCalendar(); }
         function removeShiftAssignment() { delete activeProfile.assignedShifts[selectedDateForAssignment]; saveToLocalStorage(); document.getElementById('shiftModal').classList.add('hidden'); refreshAllUI(); }
         
+        function initNineraUrl() {
+            const url = new URL('ninera/index.html', window.location.href).href;
+            const el = document.getElementById('ninera-url-display');
+            const link = document.getElementById('ninera-url-link');
+            if(el) el.textContent = url;
+            if(link) link.href = url;
+        }
+        function copyNineraUrl() {
+            const url = new URL('ninera/index.html', window.location.href).href;
+            navigator.clipboard.writeText(url).then(() => showToast('Link copiado 📋')).catch(() => {
+                const el = document.getElementById('ninera-url-display');
+                if(el) { el.select ? el.select() : window.getSelection().selectAllChildren(el); }
+                showToast('Selecciona el texto y cópialo manualmente');
+            });
+        }
+
         function triggerDownload(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = filename;
