@@ -236,10 +236,12 @@
 
             <button onclick="saveSettings()" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar cambios</button>
 
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Nube ☁️</p>
-                <button onclick="syncCloud('UPLOAD')" class="w-full py-3 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm mb-2">Subir mis datos a la nube ↑</button>
-                <button onclick="syncCloud('MERGE')" class="w-full py-3 bg-indigo-500 text-white font-extrabold rounded-2xl text-sm">Sincronizar con la nube ↕</button>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div id="sync-indicator" class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                    <p class="text-[11px] font-semibold text-slate-400">Sincronización automática activa</p>
+                </div>
+                <p id="sync-time" class="text-[10px] font-bold text-slate-400"></p>
             </div>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -479,18 +481,22 @@
                     <span class="help-arrow text-slate-400 font-extrabold text-lg transition-transform">›</span>
                 </div>
                 <div class="help-section-body">
-                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">La app guarda los datos automáticamente en la nube cada vez que haces un cambio. También sincroniza al abrirla.</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">La sincronización es completamente automática. No necesitas hacer nada.</p>
                     <div class="space-y-3">
                         <div class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
-                            <p class="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">↑ Subir mis datos a la nube</p>
-                            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Usa este botón si tienes datos en el teléfono que aún no han llegado a la nube (primera vez, o si usaste la app sin internet).</p>
+                            <p class="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">✅ Al guardar un día o pago</p>
+                            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Los datos se suben a la nube inmediatamente. Los otros dispositivos los ven en máximo 10 segundos.</p>
                         </div>
-                        <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
-                            <p class="text-sm font-extrabold text-indigo-700 dark:text-indigo-300">↕ Sincronizar con la nube</p>
-                            <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Combina los datos del teléfono con los de la nube. Úsalo si hay dos dispositivos usando la app y quieres asegurarte de que ambos tengan todo.</p>
+                        <div class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">✅ Cada 10 segundos</p>
+                            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">La app verifica si hay cambios de otros usuarios y actualiza el calendario, pagos o mensajes automáticamente.</p>
+                        </div>
+                        <div class="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
+                            <p class="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">✅ Al volver a la app</p>
+                            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Cada vez que abres la app o vuelves desde otra pantalla, sincroniza de inmediato sin esperar los 10 segundos.</p>
                         </div>
                     </div>
-                    <div class="help-warn mt-3">⚠️ Si no tienes internet, los datos se guardan solo localmente. Al recuperar conexión, usa <strong>"Subir mis datos"</strong> para sincronizar.</div>
+                    <div class="help-warn mt-3">⚠️ Si no tienes internet, los cambios se guardan en el teléfono y se suben automáticamente en cuanto se recupera la conexión.</div>
                 </div>
             </div>
 
@@ -1190,7 +1196,17 @@
         } catch(e) {}
     }
 
-    // Indicador pequeño de "recibido" en la esquina superior derecha
+    // Actualiza el indicador de sync en configuración
+    function updateSyncStatus(ok) {
+        const ind = document.getElementById('sync-indicator');
+        const time = document.getElementById('sync-time');
+        if(ind) ind.style.background = ok ? '#10b981' : '#f59e0b';
+        if(time) {
+            const now = new Date();
+            time.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        }
+    }
+
     function showSyncDot() {
         let dot = document.getElementById('sync-dot');
         if(!dot) {
@@ -1247,6 +1263,7 @@
             const rows = await res.json();
             lastKnownCloudUpdate = (rows && rows[0] && rows[0].updated_at) ? rows[0].updated_at : ts;
         } catch(e) { lastKnownCloudUpdate = ts; }
+        updateSyncStatus(true);
     }
 
     async function syncCloud(action) {
@@ -1297,7 +1314,7 @@
             renderCalendar();
             updateMsgBadge();
             if(action !== 'INIT') showToast('Sincronizado ↕️');
-        } catch(e) { console.warn('Sync error', e); showToast('Sin conexión 📵'); }
+        } catch(e) { console.warn('Sync error', e); updateSyncStatus(false); }
     }
 
     // ═══════════════════════════════════
