@@ -1128,36 +1128,88 @@
         updateMsgBadge();
     }
 
-    // Polling cada 30s: merge silencioso de mensajes y entradas nuevas
-    async function pollMessages() {
+    // ── Sync en tiempo real ──────────────────────────────
+    // Compara updated_at con la nube; si cambió, merge y refresca la vista activa
+    let lastKnownCloudUpdate = '';
+
+    async function syncRealTime() {
+        if(document.visibilityState !== 'visible') return;
         try {
             const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload`, { headers });
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload,updated_at`,
+                { headers }
+            );
             const rows = await res.json();
-            if(!rows || !rows[0] || !rows[0].payload) return;
+            if(!rows || !rows[0]) return;
+
+            const cloudUpdatedAt = rows[0].updated_at || '';
+            if(cloudUpdatedAt && cloudUpdatedAt === lastKnownCloudUpdate) return; // nada nuevo
+            lastKnownCloudUpdate = cloudUpdatedAt;
+
             const cloud = rows[0].payload;
+            if(!cloud) return;
+
             let changed = false;
+
+            // Merge entradas (calendario / pagos)
+            const cloudEntries = cloud.entries || {};
+            Object.keys(cloudEntries).forEach(key => {
+                if(JSON.stringify(appData.entries[key]) !== JSON.stringify(cloudEntries[key])) {
+                    appData.entries[key] = cloudEntries[key];
+                    changed = true;
+                }
+            });
+
             // Merge mensajes
-            const seenTs = new Set((appData.messages||[]).map(m=>m.ts));
-            (cloud.messages||[]).forEach(m => { if(!seenTs.has(m.ts)) { appData.messages.push(m); changed=true; } });
+            const seenTs = new Set((appData.messages || []).map(m => m.ts));
+            let newMsgs = 0;
+            (cloud.messages || []).forEach(m => {
+                if(!seenTs.has(m.ts)) { appData.messages.push(m); changed = true; newMsgs++; }
+            });
+            if(newMsgs) appData.messages.sort((a,b) => a.ts.localeCompare(b.ts));
+
             if(changed) {
-                appData.messages.sort((a,b)=>a.ts.localeCompare(b.ts));
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
                 updateMsgBadge();
-                if(currentViewName === 'messages') renderMessages();
+                // Refrescar la vista que está activa en este momento
+                if(currentViewName === 'calendar') renderCalendar();
+                else if(currentViewName === 'payments') renderPayments();
+                else if(currentViewName === 'messages') renderMessages();
+                showSyncDot();
             }
         } catch(e) {}
+    }
+
+    // Indicador pequeño de "recibido" en la esquina superior derecha
+    function showSyncDot() {
+        let dot = document.getElementById('sync-dot');
+        if(!dot) {
+            dot = document.createElement('div');
+            dot.id = 'sync-dot';
+            dot.style.cssText = 'position:fixed;top:14px;right:16px;z-index:80;width:8px;height:8px;border-radius:50%;background:#10b981;opacity:0;transition:opacity 0.3s;pointer-events:none';
+            document.body.appendChild(dot);
+        }
+        dot.style.opacity = '1';
+        setTimeout(() => { dot.style.opacity = '0'; }, 1800);
     }
 
     // ═══════════════════════════════════
     // SUPABASE SYNC
     // ═══════════════════════════════════
     async function cloudPush() {
-        const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' };
-        await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
+        const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' };
+        const ts = new Date().toISOString();
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
             method: 'POST', headers,
-            body: JSON.stringify({ id: CLOUD_ID, payload: appData, updated_at: new Date().toISOString() })
+            body: JSON.stringify({ id: CLOUD_ID, payload: appData, updated_at: ts })
         });
+        // Guardar el updated_at que acabamos de subir para no re-procesar como cambio externo
+        try {
+            const rows = await res.json();
+            if(rows && rows[0] && rows[0].updated_at) lastKnownCloudUpdate = rows[0].updated_at;
+            else lastKnownCloudUpdate = ts;
+        } catch(e) { lastKnownCloudUpdate = ts; }
     }
 
     async function syncCloud(action) {
@@ -1258,10 +1310,11 @@
                     });
                 });
 
-                // Al volver a la app → verificar si hay actualización disponible
+                // Al volver a la app → verificar update SW + sync inmediato
                 document.addEventListener('visibilitychange', () => {
                     if(document.visibilityState === 'visible') {
                         reg.update().catch(()=>{});
+                        syncRealTime();
                     }
                 });
 
@@ -1272,7 +1325,8 @@
 
         await syncCloud('INIT');
         updateMsgBadge();
-        setInterval(pollMessages, 30000);
+        // Sync cada 10 segundos cuando la app está visible
+        setInterval(syncRealTime, 10000);
     };
 </script>
 </body>
