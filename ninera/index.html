@@ -610,7 +610,7 @@
         <input type="file" accept="image/*" id="photoInput" class="hidden" onchange="attachPhoto(event)">
     </label>
     <!-- Input texto -->
-    <input type="text" id="msgInput" class="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 dark:text-white text-sm font-semibold outline-none min-w-0" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')sendMessage()">
+    <textarea id="msgInput" rows="1" placeholder="Escribe un mensaje..." oninput="autoGrowMsg(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}" class="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 dark:text-white text-sm font-semibold outline-none min-w-0 resize-none" style="line-height:1.45;overflow-y:hidden;max-height:138px"></textarea>
     <!-- Enviar -->
     <button onclick="sendMessage()" class="shrink-0 w-10 h-10 flex items-center justify-center rounded-2xl bg-indigo-600 text-white">
         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1318,6 +1318,8 @@
         if(!appData.messages) appData.messages = [];
         appData.messages.push(msg);
         input.value = '';
+        input.style.height = 'auto';
+        input.style.overflowY = 'hidden';
         clearPhoto();
         save();
         localStorage.setItem('ninera_lastSeenMsg', msg.ts);
@@ -1344,6 +1346,13 @@
         };
         reader.readAsDataURL(file);
         e.target.value = '';
+    }
+
+    function autoGrowMsg(el) {
+        el.style.height = 'auto';
+        const maxH = 138;
+        el.style.height = Math.min(el.scrollHeight, maxH) + 'px';
+        el.style.overflowY = el.scrollHeight > maxH ? 'auto' : 'hidden';
     }
 
     function clearPhoto() {
