@@ -1154,44 +1154,34 @@
     async function syncRealTime() {
         if(document.visibilityState !== 'visible') return;
         try {
-            const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload,updated_at`,
-                { headers }
-            );
-            const rows = await res.json();
-            if(!rows || !rows[0]) return;
+            const remote = await cloudFetch();
+            if(!remote) return;
 
-            const cloudUpdatedAt = rows[0].updated_at || '';
+            const cloudUpdatedAt = remote.updated_at || '';
             if(cloudUpdatedAt && cloudUpdatedAt === lastKnownCloudUpdate) return; // nada nuevo
             lastKnownCloudUpdate = cloudUpdatedAt;
 
-            const cloud = rows[0].payload;
+            const cloud = remote.payload;
             if(!cloud) return;
 
             let changed = false;
 
-            // Merge entradas (calendario / pagos)
+            // Entradas: la nube es fuente de verdad cuando updated_at cambia.
+            // Esto propaga tanto altas como BAJAS (borrados) de otros usuarios.
             const cloudEntries = cloud.entries || {};
-            Object.keys(cloudEntries).forEach(key => {
-                if(JSON.stringify(appData.entries[key]) !== JSON.stringify(cloudEntries[key])) {
-                    appData.entries[key] = cloudEntries[key];
-                    changed = true;
-                }
-            });
+            if(JSON.stringify(appData.entries) !== JSON.stringify(cloudEntries)) {
+                appData.entries = cloudEntries;
+                changed = true;
+            }
 
-            // Merge mensajes
-            const seenTs = new Set((appData.messages || []).map(m => m.ts));
-            let newMsgs = 0;
-            (cloud.messages || []).forEach(m => {
-                if(!seenTs.has(m.ts)) { appData.messages.push(m); changed = true; newMsgs++; }
-            });
-            if(newMsgs) appData.messages.sort((a,b) => a.ts.localeCompare(b.ts));
+            // Mensajes: append-only — unir sin perder ninguno
+            const before = appData.messages.length;
+            appData.messages = mergeMessages(appData.messages, cloud.messages);
+            if(appData.messages.length !== before) changed = true;
 
             if(changed) {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
                 updateMsgBadge();
-                // Refrescar la vista que está activa en este momento
                 if(currentViewName === 'calendar') renderCalendar();
                 else if(currentViewName === 'payments') renderPayments();
                 else if(currentViewName === 'messages') renderMessages();
@@ -1216,18 +1206,46 @@
     // ═══════════════════════════════════
     // SUPABASE SYNC
     // ═══════════════════════════════════
+
+    // Fusiona mensajes de dos arrays por timestamp (dedup)
+    function mergeMessages(a, b) {
+        const seen = new Set();
+        return [...(a||[]), ...(b||[])]
+            .filter(m => { if(seen.has(m.ts)) return false; seen.add(m.ts); return true; })
+            .sort((x,y) => x.ts.localeCompare(y.ts));
+    }
+
+    async function cloudFetch() {
+        const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/horarios_sync?id=eq.${CLOUD_ID}&select=payload,updated_at`,
+            { headers }
+        );
+        const rows = await res.json();
+        return (rows && rows[0]) ? rows[0] : null;
+    }
+
     async function cloudPush() {
+        // SIEMPRE fusionar con la nube antes de subir para no pisar cambios de otros usuarios
+        const remote = await cloudFetch();
+        if(remote && remote.payload && remote.updated_at !== lastKnownCloudUpdate) {
+            const cloud = remote.payload;
+            // Entradas: unión — local gana en mismo día (acaba de guardarse)
+            appData.entries = Object.assign({}, cloud.entries||{}, appData.entries||{});
+            // Mensajes: unión deduplicada
+            appData.messages = mergeMessages(cloud.messages, appData.messages);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
         const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' };
         const ts = new Date().toISOString();
         const res = await fetch(`${SUPABASE_URL}/rest/v1/horarios_sync?on_conflict=id`, {
             method: 'POST', headers,
             body: JSON.stringify({ id: CLOUD_ID, payload: appData, updated_at: ts })
         });
-        // Guardar el updated_at que acabamos de subir para no re-procesar como cambio externo
         try {
             const rows = await res.json();
-            if(rows && rows[0] && rows[0].updated_at) lastKnownCloudUpdate = rows[0].updated_at;
-            else lastKnownCloudUpdate = ts;
+            lastKnownCloudUpdate = (rows && rows[0] && rows[0].updated_at) ? rows[0].updated_at : ts;
         } catch(e) { lastKnownCloudUpdate = ts; }
     }
 
@@ -1236,7 +1254,7 @@
             const headers = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' };
 
             if(action === 'SAVE') {
-                // Guardar silencioso tras cada cambio local
+                // Guardar silencioso — cloudPush ya fusiona con nube antes de subir
                 await cloudPush();
                 return;
             }
