@@ -629,10 +629,10 @@
     const dNLong = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
     const palette = [
-        { chip:'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', avatar:'bg-violet-500', border:'border-violet-200 dark:border-violet-800', text:'text-violet-700 dark:text-violet-300', bg:'bg-violet-50 dark:bg-violet-900/30' },
-        { chip:'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300', avatar:'bg-sky-500', border:'border-sky-200 dark:border-sky-800', text:'text-sky-700 dark:text-sky-300', bg:'bg-sky-50 dark:bg-sky-900/30' },
-        { chip:'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300', avatar:'bg-pink-500', border:'border-pink-200 dark:border-pink-800', text:'text-pink-700 dark:text-pink-300', bg:'bg-pink-50 dark:bg-pink-900/30' },
-        { chip:'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', avatar:'bg-orange-500', border:'border-orange-200 dark:border-orange-800', text:'text-orange-700 dark:text-orange-300', bg:'bg-orange-50 dark:bg-orange-900/30' },
+        { chip:'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300', avatar:'bg-violet-500', border:'border-violet-200 dark:border-violet-800', text:'text-violet-700 dark:text-violet-300', bg:'bg-violet-50 dark:bg-violet-900/30', grad:'linear-gradient(135deg,#8b5cf6,#6d28d9)' },
+        { chip:'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300', avatar:'bg-sky-500', border:'border-sky-200 dark:border-sky-800', text:'text-sky-700 dark:text-sky-300', bg:'bg-sky-50 dark:bg-sky-900/30', grad:'linear-gradient(135deg,#0ea5e9,#0369a1)' },
+        { chip:'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300', avatar:'bg-pink-500', border:'border-pink-200 dark:border-pink-800', text:'text-pink-700 dark:text-pink-300', bg:'bg-pink-50 dark:bg-pink-900/30', grad:'linear-gradient(135deg,#ec4899,#be185d)' },
+        { chip:'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', avatar:'bg-orange-500', border:'border-orange-200 dark:border-orange-800', text:'text-orange-700 dark:text-orange-300', bg:'bg-orange-50 dark:bg-orange-900/30', grad:'linear-gradient(135deg,#f97316,#c2410c)' },
     ];
 
     // ═══════════════════════════════════
@@ -798,24 +798,25 @@
         const cards = document.getElementById('payerCards');
         const payerEntries = Object.entries(byPayer);
 
+        const pendingDays = days - payerEntries.reduce((s,[,d])=>s+d.days,0);
         let cardsHtml = '';
-        // Tarjeta pendiente
-        cardsHtml += `<div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-4">
-            <div class="text-[10px] font-extrabold text-amber-500 uppercase mb-1">Pendiente</div>
-            <div class="text-2xl font-extrabold text-amber-600 dark:text-amber-300">${fmt(pending)}</div>
-            <div class="text-[11px] text-amber-500 mt-0.5">${days - payerEntries.reduce((s,[,d])=>s+d.days,0)} día${(days-payerEntries.reduce((s,[,d])=>s+d.days,0))!==1?'s':''}</div>
+        // Tarjeta pendiente — gradiente ámbar siempre legible
+        cardsHtml += `<div style="background:linear-gradient(135deg,#f59e0b,#d97706)" class="rounded-2xl p-4 shadow-sm">
+            <div class="text-[10px] font-extrabold text-white/80 uppercase mb-1">Pendiente</div>
+            <div class="text-2xl font-extrabold text-white">${fmt(pending)}</div>
+            <div class="text-[11px] text-white/70 mt-0.5">${pendingDays} día${pendingDays!==1?'s':''}</div>
         </div>`;
-        // Tarjetas por pagador
+        // Tarjetas por pagador — gradiente sólido con texto blanco
         payerEntries.forEach(([name,data]) => {
             const c = getPayerColor(name, colorMap);
             const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-            cardsHtml += `<div class="${c.bg} rounded-2xl p-4">
+            cardsHtml += `<div style="background:${c.grad}" class="rounded-2xl p-4 shadow-sm">
                 <div class="flex items-center gap-1.5 mb-1">
-                    <div class="w-4 h-4 rounded-full ${c.avatar} flex items-center justify-center text-[8px] font-extrabold text-white">${initials}</div>
-                    <div class="text-[10px] font-extrabold uppercase ${c.text}">${name}</div>
+                    <div class="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center text-[9px] font-extrabold text-white">${initials}</div>
+                    <div class="text-[10px] font-extrabold uppercase text-white/80">${name}</div>
                 </div>
-                <div class="text-2xl font-extrabold ${c.text}">${fmt(data.amount)}</div>
-                <div class="text-[11px] ${c.text} opacity-70 mt-0.5">${data.days} día${data.days!==1?'s':''}</div>
+                <div class="text-2xl font-extrabold text-white">${fmt(data.amount)}</div>
+                <div class="text-[11px] text-white/70 mt-0.5">${data.days} día${data.days!==1?'s':''}</div>
             </div>`;
         });
         cards.innerHTML = cardsHtml;
@@ -1244,7 +1245,7 @@
         if('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
             if(reg) {
-                // Ya había un worker esperando (ej: abrieron la app después de actualizar)
+                // Ya había un worker esperando (ej: volvieron a abrir la app)
                 if(reg.waiting) { pendingWorker = reg.waiting; showUpdateBanner(); }
 
                 reg.addEventListener('updatefound', () => {
@@ -1255,6 +1256,13 @@
                             showUpdateBanner();
                         }
                     });
+                });
+
+                // Al volver a la app → verificar si hay actualización disponible
+                document.addEventListener('visibilitychange', () => {
+                    if(document.visibilityState === 'visible') {
+                        reg.update().catch(()=>{});
+                    }
                 });
 
                 // Cuando el nuevo SW toma control → recargar para aplicar cambios
