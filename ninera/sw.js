@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ninera-registro-v6';
+const CACHE_NAME = 'ninera-registro-v7';
 
 // Assets estáticos que se cachean para funcionar offline
 const STATIC_ASSETS = [
