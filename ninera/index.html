@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="1.8.0">
+    <meta name="app-version" content="1.9.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -138,6 +138,7 @@
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                         <div id="bell-badge-cal" class="badge" style="display:none;min-width:8px;width:8px;height:8px;top:-1px;right:-1px;padding:0"></div>
                     </button>
+                    <button onclick="showIdentityScreen()" id="user-avatar-cal" title="Cambiar usuario" class="w-9 h-9 flex items-center justify-center rounded-full text-white text-xs font-extrabold flex-shrink-0" style="background:#6366f1">?</button>
                     <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-lg">☀️</button>
                 </div>
             </div>
@@ -208,6 +209,7 @@
                         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                         <div id="bell-badge-pay" class="badge" style="display:none;min-width:8px;width:8px;height:8px;top:-1px;right:-1px;padding:0"></div>
                     </button>
+                    <button onclick="showIdentityScreen()" id="user-avatar-pay" title="Cambiar usuario" class="w-9 h-9 flex items-center justify-center rounded-full text-white text-xs font-extrabold flex-shrink-0" style="background:#6366f1">?</button>
                     <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-lg">☀️</button>
                 </div>
             </div>
@@ -240,10 +242,13 @@
         <!-- Header -->
         <div class="px-4 pt-5 pb-3 bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-30 flex items-center justify-between">
             <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Configuración</h1>
-            <button onclick="setView('messages')" class="relative w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
-                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <div id="bell-badge-set" class="badge" style="display:none;min-width:8px;width:8px;height:8px;top:-1px;right:-1px;padding:0"></div>
-            </button>
+            <div class="flex items-center gap-2">
+                <button onclick="setView('messages')" class="relative w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <div id="bell-badge-set" class="badge" style="display:none;min-width:8px;width:8px;height:8px;top:-1px;right:-1px;padding:0"></div>
+                </button>
+                <button onclick="showIdentityScreen()" id="user-avatar-set" title="Cambiar usuario" class="w-9 h-9 flex items-center justify-center rounded-full text-white text-xs font-extrabold flex-shrink-0" style="background:#6366f1">?</button>
+            </div>
         </div>
 
         <div class="px-4 mt-5 space-y-4">
@@ -731,8 +736,8 @@
         const msgBar = document.getElementById('msg-bar');
         if(name === 'messages') { msgBar.classList.add('show'); markMessagesRead(); renderMessages(); }
         else msgBar.classList.remove('show');
-        if(name==='calendar') renderCalendar();
-        if(name==='payments') renderPayments();
+        if(name==='calendar') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderCalendar(); }
+        if(name==='payments') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderPayments(); }
         if(name==='settings') loadSettingsForm();
     }
 
@@ -952,6 +957,7 @@
         const identity = document.getElementById('settingIdentity').value.trim();
         if(identity) localStorage.setItem(MSG_IDENTITY_KEY, identity);
         save();
+        updateUserAvatar();
         showToast('Configuración guardada');
     }
 
@@ -1142,6 +1148,7 @@
         setTimeout(() => {
             screen.style.display = 'none';
             showToast('Hola, ' + name + ' 👋');
+            updateUserAvatar();
             setupNotifications();
         }, 420);
     }
@@ -1174,6 +1181,33 @@
                 });
             } catch(e) {}
         }
+    }
+
+    function notifyCalendarChange() {
+        if('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
+        if(Notification.permission === 'granted') {
+            try {
+                new Notification('Registro Niñera 📅', {
+                    body: 'El calendario fue actualizado',
+                    icon: '../icons/icon2-192x192.png',
+                    tag: 'ninera-cal', renotify: true
+                });
+            } catch(e) {}
+        }
+    }
+
+    function updateUserAvatar() {
+        const me = myIdentity();
+        const payers = (appData.settings.payers && appData.settings.payers.length) ? appData.settings.payers : ['Papá', 'Mamá'];
+        const workerName = appData.settings.workerName || 'Niñera';
+        const names = [...new Set([...payers, workerName])];
+        const idx = names.findIndex(n => n === me);
+        const c = palette[(idx >= 0 ? idx : 0) % palette.length];
+        const initials = me !== 'Yo' ? me.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
+        ['user-avatar-cal', 'user-avatar-pay', 'user-avatar-set'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) { el.style.background = c.grad; el.textContent = initials; }
+        });
     }
 
     function renderMessages() {
@@ -1264,9 +1298,11 @@
 
     function updateBellBadge(n) {
         if(n === undefined) n = countUnread();
+        const calUnseen = localStorage.getItem('ninera_cal_unseen') === '1';
+        const hasAlert = n > 0 || calUnseen;
         ['bell-badge-cal', 'bell-badge-pay', 'bell-badge-set'].forEach(id => {
             const el = document.getElementById(id);
-            if(el) el.style.display = n > 0 ? 'flex' : 'none';
+            if(el) el.style.display = hasAlert ? 'flex' : 'none';
         });
     }
 
@@ -1307,6 +1343,10 @@
             if(JSON.stringify(appData.entries) !== JSON.stringify(cloudEntries)) {
                 appData.entries = cloudEntries;
                 changed = true;
+                if(currentViewName !== 'calendar' && currentViewName !== 'payments') {
+                    localStorage.setItem('ninera_cal_unseen', '1');
+                    notifyCalendarChange();
+                }
             }
 
             // Mensajes: append-only — unir sin perder ninguno
@@ -1575,7 +1615,7 @@
             }, 650);
         }, 1800);
 
-        initDark(); load(); renderCalendar();
+        initDark(); load(); renderCalendar(); updateUserAvatar();
 
         // Detectar si la versión de la app cambió respecto a la anterior visita
         const currentVersion = document.querySelector('meta[name="app-version"]')?.content || '';
