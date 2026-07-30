@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
+    <meta name="app-version" content="1.5.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -1440,17 +1441,19 @@
 
         initDark(); load(); renderCalendar();
 
-        // Mostrar toast si venimos de una actualización automática
-        if(sessionStorage.getItem('sw_updated')) {
-            sessionStorage.removeItem('sw_updated');
-            setTimeout(() => showToast('App actualizada ✅'), 800);
+        // Detectar si la versión de la app cambió respecto a la anterior visita
+        const currentVersion = document.querySelector('meta[name="app-version"]')?.content || '';
+        const savedVersion = localStorage.getItem('ninera_app_version');
+        if(savedVersion && savedVersion !== currentVersion) {
+            setTimeout(() => showToast('¡App actualizada! ✅'), 900);
         }
+        if(currentVersion) localStorage.setItem('ninera_app_version', currentVersion);
 
-        // Service Worker — actualización automática sin interacción
+        // Service Worker con estrategia network-first para HTML
         if('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
             if(reg) {
-                // Al volver a la app → verificar si existe nueva versión inmediatamente
+                // Al volver a la app → verificar si hay nuevo SW + sync de datos
                 document.addEventListener('visibilitychange', () => {
                     if(document.visibilityState === 'visible') {
                         reg.update().catch(()=>{});
@@ -1458,13 +1461,11 @@
                     }
                 });
 
-                // El SW nuevo llama skipWaiting() solo al instalarse (ver sw.js),
-                // lo que dispara controllerchange → la página se recarga automáticamente
+                // Si el SW cambia (primera instalación u otro cambio en sw.js), recargar
                 let refreshing = false;
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     if(refreshing) return;
                     refreshing = true;
-                    sessionStorage.setItem('sw_updated', '1');
                     window.location.reload();
                 });
             }
