@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.6.0">
+    <meta name="app-version" content="2.7.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -94,6 +94,12 @@
     </style>
 </head>
 <body class="min-h-screen">
+
+<!-- BANNER DE ACTUALIZACIÓN (cuenta regresiva) -->
+<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;max-width:448px;margin:0 auto;z-index:400;background:linear-gradient(90deg,#4f46e5,#7c3aed);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 3px 16px rgba(79,70,229,0.45)">
+    <span style="font-size:13px;font-weight:700">✨ Nueva versión — actualizando en <span id="update-countdown">5</span> s</span>
+    <button onclick="window._applyUpdateNow && window._applyUpdateNow()" style="background:#fff;color:#4f46e5;border-radius:10px;padding:5px 14px;font-size:12px;font-weight:800;white-space:nowrap;border:none;cursor:pointer">Ahora</button>
+</div>
 
 <!-- SPLASH SCREEN -->
 <div id="splash" style="position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s ease">
@@ -1922,6 +1928,23 @@
         showToast('¡App instalada! 🎉');
     });
 
+    // ── Banner de actualización: avisa y recarga en 5 s ──────────────
+    function showUpdateCountdown() {
+        const b = document.getElementById('update-banner');
+        const span = document.getElementById('update-countdown');
+        const apply = () => location.replace(location.href);
+        if(!b) { apply(); return; }
+        b.style.display = 'flex';
+        let secs = 5;
+        if(span) span.textContent = secs;
+        const t = setInterval(() => {
+            secs--;
+            if(span) span.textContent = secs;
+            if(secs <= 0) { clearInterval(t); apply(); }
+        }, 1000);
+        window._applyUpdateNow = () => { clearInterval(t); apply(); };
+    }
+
     // ── Teclado virtual: VisualViewport reporta la altura visible REAL ──
     // En Android, window.innerHeight puede no cambiar al abrir el teclado,
     // pero visualViewport.height sí. Anclamos la vista de mensajes a ella.
@@ -1978,12 +2001,15 @@
 
         // Service Worker: registrar controllerchange ANTES de register() para no perder el evento
         if('serviceWorker' in navigator) {
+            const hadController = !!navigator.serviceWorker.controller;
             let refreshing = false;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if(refreshing) return;
                 refreshing = true;
-                // location.replace hace una navegación limpia que el nuevo SW intercepta
-                location.replace(location.href);
+                // Primera instalación: no hay versión vieja que reemplazar, no recargar
+                if(!hadController) return;
+                // Actualización real: banner con cuenta regresiva de 5 s y recarga
+                showUpdateCountdown();
             });
 
             const reg = await navigator.serviceWorker.register('./sw.js').catch(()=>null);
