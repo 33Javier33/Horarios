@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.8.0">
+    <meta name="app-version" content="2.9.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -1051,6 +1051,7 @@
         appData.settings.rate = parseAmount(document.getElementById('settingRate').value);
         appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
         appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
+        appData.settings.updatedAt = new Date().toISOString();
         const identity = document.getElementById('settingIdentity').value.trim();
         if(identity) localStorage.setItem(MSG_IDENTITY_KEY, identity);
         save();
@@ -1667,6 +1668,15 @@
                 }
             });
 
+            // Settings: aplicar la de la nube si es más reciente (nombres, tarifa, pagadores)
+            const pickedSettings = pickNewerSettings(appData.settings, cloud.settings);
+            if(JSON.stringify(pickedSettings) !== JSON.stringify(appData.settings)) {
+                appData.settings = pickedSettings;
+                changed = true;
+                updateUserAvatar();
+                if(currentViewName === 'settings') loadSettingsForm();
+            }
+
             if(changed) {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
                 updateMsgBadge();
@@ -1707,6 +1717,18 @@
     // ═══════════════════════════════════
     // SUPABASE SYNC
     // ═══════════════════════════════════
+
+    // Elige la configuración ganadora: la de timestamp más reciente.
+    // Sin timestamps (datos antiguos), la personalizada le gana a la de fábrica.
+    function pickNewerSettings(local, cloud) {
+        local = local || {}; cloud = cloud || {};
+        const lt = local.updatedAt || '', ct = cloud.updatedAt || '';
+        if(ct !== lt) return ct > lt ? cloud : local;
+        const isDefault = s => (!s.workerName || s.workerName === 'Niñera') && !s.rate
+            && (!s.payers || s.payers.join(',') === 'Papá,Mamá');
+        if(isDefault(local) && !isDefault(cloud)) return cloud;
+        return local;
+    }
 
     // Fusiona mensajes de dos arrays por timestamp; hace union de reacciones
     function mergeMessages(a, b) {
@@ -1750,6 +1772,8 @@
             Object.entries(remoteSeenBy).forEach(([user, ts]) => {
                 if(!appData.seenBy[user] || ts > appData.seenBy[user]) appData.seenBy[user] = ts;
             });
+            // Settings: gana la más reciente (no pisar nombres guardados en otro dispositivo)
+            appData.settings = pickNewerSettings(appData.settings, cloud.settings);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         }
 
@@ -1797,13 +1821,14 @@
                 const seenTs = new Set();
                 const mergedMsgs = allMsgs.filter(m => { if(seenTs.has(m.ts)) return false; seenTs.add(m.ts); return true; })
                                           .sort((a,b)=>a.ts.localeCompare(b.ts));
-                // Settings: tomar la nube si tiene datos más ricos (workerName distinto de default)
-                const cloudSettings = cloud.settings||{};
-                const localSettings = appData.settings||{};
-                const settings = (cloudSettings.workerName && cloudSettings.workerName !== 'Niñera' && cloudSettings.workerName !== localSettings.workerName)
-                    ? { ...cloudSettings, ...localSettings } // local gana en campos iguales
-                    : localSettings;
-                appData = { settings, entries: mergedEntries, messages: mergedMsgs };
+                // Settings: gana la más reciente por timestamp
+                const settings = pickNewerSettings(appData.settings, cloud.settings);
+                // seenBy: máximo ts por usuario
+                const mergedSeenBy = Object.assign({}, appData.seenBy||{});
+                Object.entries(cloud.seenBy||{}).forEach(([user, ts]) => {
+                    if(!mergedSeenBy[user] || ts > mergedSeenBy[user]) mergedSeenBy[user] = ts;
+                });
+                appData = { settings, entries: mergedEntries, messages: mergedMsgs, seenBy: mergedSeenBy };
             }
             if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
             if(!appData.entries) appData.entries = {};
@@ -1813,6 +1838,7 @@
             await cloudPush();
             renderCalendar();
             updateMsgBadge();
+            updateUserAvatar();
             if(action !== 'INIT') showToast('Sincronizado ↕️');
         } catch(e) { console.warn('Sync error', e); updateSyncStatus(false); }
     }
