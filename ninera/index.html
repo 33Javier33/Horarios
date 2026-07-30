@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="1.9.0">
+    <meta name="app-version" content="2.0.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -41,6 +41,7 @@
         .day-cell { position: relative; aspect-ratio: 1; border-radius: 14px; border: 1.5px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 13px; font-weight: 700; overflow: hidden; }
         .day-cell:active { transform: scale(0.93); }
         .day-cell.today { border-color: #6366f1 !important; box-shadow: 0 0 0 2px #6366f133; }
+        .day-cell.selected-day { box-shadow: inset 0 0 0 2.5px #6366f1 !important; }
         .day-cell.worked { background: linear-gradient(135deg,#10b981,#059669); color:#fff; border-color:#10b981; }
         .day-cell.worked.paid { background: linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; border-color:#6366f1; }
         .day-cell.not-worked { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
@@ -182,6 +183,20 @@
                 <div class="text-center text-[10px] font-extrabold text-slate-400 uppercase">Dom</div>
             </div>
             <div id="calGrid" class="calendar-grid"></div>
+        </div>
+
+        <!-- Info del día seleccionado -->
+        <div id="day-info-panel" class="px-4 mt-3" style="display:none">
+            <div class="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                        <p id="day-info-date" class="font-extrabold text-slate-800 dark:text-white text-sm mb-2"></p>
+                        <div id="day-info-status" class="flex flex-wrap gap-1.5 mb-2"></div>
+                        <div id="day-info-details" class="space-y-1.5"></div>
+                    </div>
+                    <button onclick="openDay(selectedDate)" class="shrink-0 px-3 py-2 bg-indigo-600 text-white font-extrabold rounded-xl text-xs">Editar</button>
+                </div>
+            </div>
         </div>
 
         <!-- Leyenda -->
@@ -821,7 +836,7 @@
                 } else { cls += 'not-worked'; }
             } else { cls += 'empty-day'; }
             if(isToday) cls += ' today';
-            html += `<div class="${cls}" onclick="openDay('${dateStr}')">${inner}</div>`;
+            html += `<div class="${cls}" data-date="${dateStr}" onclick="selectDay('${dateStr}')">${inner}</div>`;
         }
         grid.innerHTML = html;
 
@@ -843,6 +858,60 @@
                 <div class="text-[11px] font-bold opacity-80 mt-0.5">${fmt(data.amount)}</div>
             </div>`;
         }).join('') : '';
+
+        // Restaurar panel de info o auto-seleccionar hoy
+        const _today = new Date();
+        const _todayStr = `${_today.getFullYear()}-${String(_today.getMonth()+1).padStart(2,'0')}-${String(_today.getDate()).padStart(2,'0')}`;
+        const _prefix = getPrefix();
+        if(selectedDate && selectedDate.startsWith(_prefix)) {
+            showDayInfo(selectedDate);
+        } else if(currentYear === _today.getFullYear() && currentMonth === _today.getMonth()) {
+            selectDay(_todayStr);
+        } else {
+            document.getElementById('day-info-panel').style.display = 'none';
+        }
+    }
+
+    function selectDay(dateStr) {
+        selectedDate = dateStr;
+        showDayInfo(dateStr);
+    }
+
+    function showDayInfo(dateStr) {
+        document.querySelectorAll('#calGrid .day-cell').forEach(el => {
+            el.classList.toggle('selected-day', el.dataset.date === dateStr);
+        });
+
+        const panel  = document.getElementById('day-info-panel');
+        const entry  = appData.entries[dateStr] || {};
+        const d      = new Date(dateStr + 'T00:00:00');
+        const hasEntry = Object.keys(entry).length > 0;
+
+        document.getElementById('day-info-date').textContent =
+            `${dNLong[d.getDay()]} ${d.getDate()} de ${monthNames[d.getMonth()]}`;
+
+        const statusEl  = document.getElementById('day-info-status');
+        const detailsEl = document.getElementById('day-info-details');
+
+        if(!hasEntry) {
+            statusEl.innerHTML  = `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Sin registro</span>`;
+            detailsEl.innerHTML = '';
+        } else if(!entry.worked) {
+            statusEl.innerHTML  = `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">No trabajó</span>`;
+            detailsEl.innerHTML = '';
+        } else {
+            const payChip = entry.isPaid
+                ? `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Pagado</span>`
+                : `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Pendiente</span>`;
+            statusEl.innerHTML = `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Trabajó</span>${payChip}`;
+            let rows = '';
+            if(entry.amount)  rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Monto</span><span class="font-extrabold text-slate-800 dark:text-white text-sm">${fmt(entry.amount)}</span></div>`;
+            if(entry.paidBy)  rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Pagó</span><span class="font-extrabold text-slate-800 dark:text-white text-sm">${entry.paidBy}</span></div>`;
+            if(entry.note)    rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Nota</span><span class="font-semibold text-slate-600 dark:text-slate-300 text-sm italic">"${entry.note}"</span></div>`;
+            if(entry.savedBy) rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Guardó</span><span class="font-semibold text-slate-500 dark:text-slate-400 text-sm">${entry.savedBy}</span></div>`;
+            detailsEl.innerHTML = rows;
+        }
+        panel.style.display = 'block';
     }
 
     // ═══════════════════════════════════
