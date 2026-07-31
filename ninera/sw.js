@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ninera-registro-v20';
+const CACHE_NAME = 'ninera-registro-v21';
 const SUPABASE_URL = "https://lpulmjzboogixbdxxayo.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwdWxtanpib29naXhiZHh4YXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NjY0NzMsImV4cCI6MjA5MTI0MjQ3M30.vjebyQb4Bb62ZQlNaJZveuxdBYDOmtC4bM7uwAilDzY";
 const CLOUD_ID = 'ninera';
@@ -72,7 +72,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if(e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request)
+      // cache:no-store salta el caché HTTP del hosting (ej. GitHub Pages, 10 min)
+      fetch(e.request.url, { cache: 'no-store' })
         .then(res => {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));

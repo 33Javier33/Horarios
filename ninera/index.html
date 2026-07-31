@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.12.0">
+    <meta name="app-version" content="2.13.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -758,6 +758,7 @@
         if(!appData.entries) appData.entries = {};
         if(!appData.messages) appData.messages = [];
         if(!appData.seenBy) appData.seenBy = {};
+        migrateEntryNames();
     }
 
     // ═══════════════════════════════════
@@ -820,22 +821,29 @@
         return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     }
 
+    // ¿Son la misma persona? Igual normalizado, o uno es el primer nombre del otro
+    // ("Papá" coincide con "Papá Carlos")
+    function nameMatches(a, b) {
+        const na = normName(a), nb = normName(b);
+        if(!na || !nb) return false;
+        return na === nb || na.startsWith(nb + ' ') || nb.startsWith(na + ' ');
+    }
+
     // Color por persona: primero el elegido en Configuración (settings.colors),
     // si no hay, uno estable según su posición en la lista de pagadores.
-    // La búsqueda tolera diferencias de mayúsculas/acentos en datos antiguos.
+    // La búsqueda tolera acentos/mayúsculas y nombres parciales ("Papá" = "Papá Carlos").
     function getPayerColor(name) {
         const s = appData.settings || {};
         const colors = s.colors || {};
         if(colors[name] !== undefined && palette[colors[name]]) return palette[colors[name]];
-        const nn = normName(name);
-        // Match normalizado contra los colores elegidos
+        // Match tolerante contra los colores elegidos
         for(const [key, idx] of Object.entries(colors)) {
-            if(normName(key) === nn && palette[idx]) return palette[idx];
+            if(nameMatches(key, name) && palette[idx]) return palette[idx];
         }
         const payers = (s.payers && s.payers.length) ? s.payers : ['Papá','Mamá'];
-        let idx = payers.findIndex(p => normName(p) === nn);
+        let idx = payers.findIndex(p => nameMatches(p, name));
         if(idx < 0) {
-            if(nn && nn === normName(s.workerName || 'Niñera')) idx = payers.length;
+            if(name && nameMatches(name, s.workerName || 'Niñera')) idx = payers.length;
             else {
                 let h = 0;
                 for(const ch of String(name||'')) h = (h*31 + ch.charCodeAt(0)) >>> 0;
@@ -843,6 +851,19 @@
             }
         }
         return palette[idx % palette.length];
+    }
+
+    // Migración: unifica nombres de pagadores antiguos con los actuales de
+    // Configuración ("Papá" guardado antes pasa a ser "Papá Carlos")
+    function migrateEntryNames() {
+        const payersList = (appData.settings && appData.settings.payers) || [];
+        if(!payersList.length) return;
+        Object.values(appData.entries || {}).forEach(e => {
+            if(e && e.paidBy && !payersList.includes(e.paidBy)) {
+                const canon = payersList.find(p => nameMatches(p, e.paidBy));
+                if(canon) e.paidBy = canon;
+            }
+        });
     }
 
     // ═══════════════════════════════════
@@ -1742,6 +1763,7 @@
             const cloudEntries = cloud.entries || {};
             if(JSON.stringify(appData.entries) !== JSON.stringify(cloudEntries)) {
                 appData.entries = cloudEntries;
+                migrateEntryNames();
                 changed = true;
                 if(currentViewName !== 'calendar' && currentViewName !== 'payments') {
                     localStorage.setItem('ninera_cal_unseen', '1');
@@ -2055,6 +2077,8 @@
 
     // ── Banner de actualización: avisa y recarga en 5 s ──────────────
     function showUpdateCountdown() {
+        if(window._updateShown) return;
+        window._updateShown = true;
         const b = document.getElementById('update-banner');
         const span = document.getElementById('update-countdown');
         const apply = () => location.replace(location.href);
@@ -2068,6 +2092,21 @@
             if(secs <= 0) { clearInterval(t); apply(); }
         }, 1000);
         window._applyUpdateNow = () => { clearInterval(t); apply(); };
+    }
+
+    // ── Chequeo de versión directo al servidor (independiente del SW) ──
+    // Baja el HTML con cache:no-store y compara el app-version. Si el
+    // servidor tiene una versión distinta, muestra el banner. Esto no
+    // depende de eventos del Service Worker, que pueden perderse.
+    async function checkVersionUpdate() {
+        try {
+            const res = await fetch('./index.html', { cache: 'no-store' });
+            if(!res.ok) return;
+            const text = await res.text();
+            const m = text.match(/name="app-version"\s+content="([^"]+)"/);
+            const current = document.querySelector('meta[name="app-version"]')?.content || '';
+            if(m && m[1] && current && m[1] !== current) showUpdateCountdown();
+        } catch(e) {}
     }
 
     // ── Teclado virtual: VisualViewport reporta la altura visible REAL ──
@@ -2159,6 +2198,13 @@
         updateMsgBadge();
         // Sync cada 10 segundos cuando la app está visible
         setInterval(syncRealTime, 10000);
+
+        // Chequeo de versión: al iniciar, al volver a la app y cada 60 s
+        setTimeout(checkVersionUpdate, 4000);
+        setInterval(checkVersionUpdate, 60000);
+        document.addEventListener('visibilitychange', () => {
+            if(document.visibilityState === 'visible') checkVersionUpdate();
+        });
     };
 </script>
 </body>
