@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.10.0">
+    <meta name="app-version" content="2.11.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -283,7 +283,7 @@
         <div class="px-4 mt-5 space-y-4">
             <div>
                 <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nombre de la trabajadora</label>
-                <input type="text" id="settingName" class="input-field" placeholder="Ej: María">
+                <input type="text" id="settingName" class="input-field" placeholder="Ej: María" oninput="renderColorPickers()">
             </div>
             <div>
                 <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Tarifa diaria por defecto</label>
@@ -294,7 +294,11 @@
             </div>
             <div>
                 <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Quiénes pueden pagar <span class="normal-case font-semibold">(uno por línea)</span></label>
-                <textarea id="settingPayers" class="input-field" rows="4" style="resize:none" placeholder="Papá&#10;Mamá"></textarea>
+                <textarea id="settingPayers" class="input-field" rows="4" style="resize:none" placeholder="Papá&#10;Mamá" oninput="renderColorPickers()"></textarea>
+            </div>
+            <div>
+                <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Color de cada persona</label>
+                <div id="colorPickers" class="space-y-2"></div>
             </div>
 
             <button onclick="saveSettings()" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar cambios</button>
@@ -733,6 +737,10 @@
         { chip:'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300', avatar:'bg-sky-500', border:'border-sky-200 dark:border-sky-800', text:'text-sky-700 dark:text-sky-300', bg:'bg-sky-50 dark:bg-sky-900/30', grad:'linear-gradient(135deg,#0ea5e9,#0369a1)' },
         { chip:'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300', avatar:'bg-pink-500', border:'border-pink-200 dark:border-pink-800', text:'text-pink-700 dark:text-pink-300', bg:'bg-pink-50 dark:bg-pink-900/30', grad:'linear-gradient(135deg,#ec4899,#be185d)' },
         { chip:'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', avatar:'bg-orange-500', border:'border-orange-200 dark:border-orange-800', text:'text-orange-700 dark:text-orange-300', bg:'bg-orange-50 dark:bg-orange-900/30', grad:'linear-gradient(135deg,#f97316,#c2410c)' },
+        { chip:'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300', avatar:'bg-teal-500', border:'border-teal-200 dark:border-teal-800', text:'text-teal-700 dark:text-teal-300', bg:'bg-teal-50 dark:bg-teal-900/30', grad:'linear-gradient(135deg,#14b8a6,#0f766e)' },
+        { chip:'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300', avatar:'bg-blue-500', border:'border-blue-200 dark:border-blue-800', text:'text-blue-700 dark:text-blue-300', bg:'bg-blue-50 dark:bg-blue-900/30', grad:'linear-gradient(135deg,#3b82f6,#1d4ed8)' },
+        { chip:'bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-700 dark:text-fuchsia-300', avatar:'bg-fuchsia-500', border:'border-fuchsia-200 dark:border-fuchsia-800', text:'text-fuchsia-700 dark:text-fuchsia-300', bg:'bg-fuchsia-50 dark:bg-fuchsia-900/30', grad:'linear-gradient(135deg,#d946ef,#a21caf)' },
+        { chip:'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300', avatar:'bg-yellow-500', border:'border-yellow-200 dark:border-yellow-800', text:'text-yellow-700 dark:text-yellow-300', bg:'bg-yellow-50 dark:bg-yellow-900/30', grad:'linear-gradient(135deg,#eab308,#a16207)' },
     ];
 
     // ═══════════════════════════════════
@@ -806,15 +814,21 @@
     function getPrefix() {
         return `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
     }
-    // Color ESTABLE por pagador: según su posición en Configuración,
-    // así cada persona tiene siempre el mismo color en todas las vistas
+    // Color por persona: primero el elegido en Configuración (settings.colors),
+    // si no hay, uno estable según su posición en la lista de pagadores
     function getPayerColor(name) {
-        const payers = (appData.settings.payers && appData.settings.payers.length) ? appData.settings.payers : ['Papá','Mamá'];
+        const s = appData.settings || {};
+        const colors = s.colors || {};
+        if(colors[name] !== undefined && palette[colors[name]]) return palette[colors[name]];
+        const payers = (s.payers && s.payers.length) ? s.payers : ['Papá','Mamá'];
         let idx = payers.indexOf(name);
         if(idx < 0) {
-            let h = 0;
-            for(const ch of String(name||'')) h = (h*31 + ch.charCodeAt(0)) >>> 0;
-            idx = h % palette.length;
+            if(name && name === (s.workerName || 'Niñera')) idx = payers.length;
+            else {
+                let h = 0;
+                for(const ch of String(name||'')) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+                idx = h % palette.length;
+            }
         }
         return palette[idx % palette.length];
     }
@@ -1070,11 +1084,62 @@
         document.getElementById('settingName').value = appData.settings.workerName||'';
         document.getElementById('settingPayers').value = (appData.settings.payers||[]).join('\n');
         document.getElementById('settingIdentity').value = localStorage.getItem(MSG_IDENTITY_KEY)||'';
+        _colorChoices = Object.assign({}, appData.settings.colors || {});
+        renderColorPickers();
     }
+
+    // ── Selector de color por persona ──────────────────
+    let _colorChoices = {};
+
+    function _formNames() {
+        const worker = document.getElementById('settingName').value.trim() || 'Niñera';
+        let payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
+        if(!payers.length) payers = ['Papá','Mamá'];
+        return { payers, worker, names: [...new Set([...payers, worker])] };
+    }
+
+    function _chosenIdx(name, payers, worker) {
+        if(_colorChoices[name] !== undefined) return _colorChoices[name];
+        let idx = payers.indexOf(name);
+        if(idx < 0) idx = (name === worker) ? payers.length : 0;
+        return idx % palette.length;
+    }
+
+    function renderColorPickers() {
+        const cont = document.getElementById('colorPickers');
+        if(!cont) return;
+        const { payers, worker, names } = _formNames();
+        cont.innerHTML = names.map(name => {
+            const chosen = _chosenIdx(name, payers, worker);
+            const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+            const safeName = name.replace(/'/g,"\\'");
+            const dots = palette.map((p, i) =>
+                `<button type="button" onclick="pickColor('${safeName}',${i})" style="width:28px;height:28px;border-radius:50%;background:${p.grad};border:2px solid ${i===chosen?'#fff':'transparent'};box-shadow:${i===chosen?'0 0 0 2.5px #6366f1':'none'};cursor:pointer;flex-shrink:0;padding:0"></button>`
+            ).join('');
+            return `<div class="bg-slate-50 dark:bg-slate-800 rounded-2xl px-3 py-2.5">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white shrink-0" style="background:${palette[chosen].grad}">${initials}</span>
+                    <span class="text-sm font-extrabold text-slate-700 dark:text-slate-200">${name}</span>
+                </div>
+                <div class="flex gap-2 flex-wrap">${dots}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function pickColor(name, idx) {
+        _colorChoices[name] = idx;
+        renderColorPickers();
+    }
+
     function saveSettings() {
         appData.settings.rate = parseAmount(document.getElementById('settingRate').value);
         appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
         appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
+        // Guardar colores elegidos (solo de personas que siguen existiendo)
+        const validNames = new Set([...appData.settings.payers, appData.settings.workerName]);
+        const colors = {};
+        Object.entries(_colorChoices).forEach(([n, i]) => { if(validNames.has(n)) colors[n] = i; });
+        appData.settings.colors = colors;
         appData.settings.updatedAt = new Date().toISOString();
         const identity = document.getElementById('settingIdentity').value.trim();
         if(identity) localStorage.setItem(MSG_IDENTITY_KEY, identity);
@@ -1232,7 +1297,7 @@
         const workerName = appData.settings.workerName || 'Niñera';
         const names = [...new Set([...payers, workerName])];
         container.innerHTML = names.map((name, i) => {
-            const c = palette[i % palette.length];
+            const c = getPayerColor(name);
             const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
             return `<button onclick="selectIdentity('${name.replace(/'/g,"\\'")}')" style="width:100%;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);border-radius:18px;padding:16px 20px;cursor:pointer;font-family:inherit;text-align:left;transition:background 0.15s" ontouchstart="" onmouseenter="this.style.background='rgba(255,255,255,0.14)'" onmouseleave="this.style.background='rgba(255,255,255,0.07)'">
                 <div style="width:44px;height:44px;border-radius:14px;background:${c.grad};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;flex-shrink:0">${initials}</div>
@@ -1322,11 +1387,7 @@
 
     function updateUserAvatar() {
         const me = myIdentity();
-        const payers = (appData.settings.payers && appData.settings.payers.length) ? appData.settings.payers : ['Papá', 'Mamá'];
-        const workerName = appData.settings.workerName || 'Niñera';
-        const names = [...new Set([...payers, workerName])];
-        const idx = names.findIndex(n => n === me);
-        const c = palette[(idx >= 0 ? idx : 0) % palette.length];
+        const c = getPayerColor(me);
         const initials = me !== 'Yo' ? me.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
         ['user-avatar-cal', 'user-avatar-pay', 'user-avatar-set'].forEach(id => {
             const el = document.getElementById(id);
