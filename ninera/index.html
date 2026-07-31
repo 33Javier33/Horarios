@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.13.0">
+    <meta name="app-version" content="2.14.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -853,6 +853,12 @@
         return palette[idx % palette.length];
     }
 
+    // Color base (hex) de una persona — el primer color de su gradiente
+    function payerHex(name) {
+        const m = (getPayerColor(name).grad || '').match(/#[0-9a-fA-F]{6}/);
+        return m ? m[0] : '#10b981';
+    }
+
     // Migración: unifica nombres de pagadores antiguos con los actuales de
     // Configuración ("Papá" guardado antes pasa a ser "Papá Carlos")
     function migrateEntryNames() {
@@ -910,10 +916,14 @@
             if(entry) {
                 if(entry.worked) {
                     cls += entry.isPaid ? 'worked paid' : 'worked';
-                    // Día pagado: pintar con el color de quien pagó
+                    // Día pagado: relleno sólido con el color de quien pagó.
+                    // Pendiente con persona asignada: borde y número de su color.
                     if(entry.isPaid && entry.paidBy) {
                         const pc = getPayerColor(entry.paidBy);
                         cellStyle = ` style="background:${pc.grad};border-color:transparent"`;
+                    } else if(!entry.isPaid && entry.paidBy) {
+                        const hx = payerHex(entry.paidBy);
+                        cellStyle = ` style="background:${hx}2b;border-color:${hx};color:${hx}"`;
                     }
                     const amt = entry.amount ? `<span style="font-size:9px;font-weight:800;opacity:0.88;margin-top:1px">${fmtCompact(entry.amount)}</span>` : '';
                     inner = `<span class="text-sm font-extrabold">${d}</span>${amt}`;
@@ -952,6 +962,7 @@
                 const pc = getPayerColor(p);
                 lg += `<div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full" style="background:${pc.grad}"></div><span class="text-[11px] font-semibold text-slate-400">Pagó ${p}</span></div>`;
             });
+            lg += `<div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full" style="border:2px solid #94a3b8"></div><span class="text-[11px] font-semibold text-slate-400">Solo borde · pendiente de esa persona</span></div>`;
             lg += `<div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-red-300"></div><span class="text-[11px] font-semibold text-slate-400">No trabajó</span></div>`;
             legend.innerHTML = lg;
         }
@@ -1001,11 +1012,13 @@
                 ? (entry.paidBy
                     ? `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full text-white" style="background:${getPayerColor(entry.paidBy).grad}">Pagado · ${entry.paidBy}</span>`
                     : `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">Pagado</span>`)
-                : `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Pendiente</span>`;
+                : (entry.paidBy
+                    ? `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full" style="border:1.5px solid ${payerHex(entry.paidBy)};color:${payerHex(entry.paidBy)}">Pendiente · ${entry.paidBy}</span>`
+                    : `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">Pendiente</span>`);
             statusEl.innerHTML = `<span class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">Trabajó</span>${payChip}`;
             let rows = '';
             if(entry.amount)  rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Monto</span><span class="font-extrabold text-slate-800 dark:text-white text-sm">${fmt(entry.amount)}</span></div>`;
-            if(entry.paidBy)  rows += `<div class="flex gap-3 items-center"><span class="text-[11px] text-slate-400 w-14 shrink-0">Pagó</span><span class="inline-flex items-center gap-1.5 font-extrabold text-slate-800 dark:text-white text-sm"><span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${getPayerColor(entry.paidBy).grad}"></span>${entry.paidBy}</span></div>`;
+            if(entry.paidBy)  rows += `<div class="flex gap-3 items-center"><span class="text-[11px] text-slate-400 w-14 shrink-0">${entry.isPaid ? 'Pagó' : 'Pagará'}</span><span class="inline-flex items-center gap-1.5 font-extrabold text-slate-800 dark:text-white text-sm"><span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${getPayerColor(entry.paidBy).grad}"></span>${entry.paidBy}</span></div>`;
             if(entry.note)    rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Nota</span><span class="font-semibold text-slate-600 dark:text-slate-300 text-sm italic" style="white-space:pre-line">"${entry.note}"</span></div>`;
             if(entry.savedBy) rows += `<div class="flex gap-3"><span class="text-[11px] text-slate-400 w-14 shrink-0 pt-0.5">Guardó</span><span class="font-semibold text-slate-500 dark:text-slate-400 text-sm">${entry.savedBy}</span></div>`;
             detailsEl.innerHTML = rows;
@@ -1081,7 +1094,7 @@
                     <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</div>
                     ${e.note ? `<div class="text-[11px] text-slate-400 truncate">${e.note}</div>` : ''}
                 </div>
-                ${col ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 ${col.chip}">${e.paidBy}</span>` : `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300">Pendiente</span>`}
+                ${col ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 ${col.chip}">${e.paidBy}</span>` : (e.paidBy ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0" style="border:1.5px solid ${payerHex(e.paidBy)};color:${payerHex(e.paidBy)}">Pendiente · ${e.paidBy}</span>` : `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300">Pendiente</span>`)}
             </div>`;
         };
 
