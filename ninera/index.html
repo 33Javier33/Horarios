@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.11.0">
+    <meta name="app-version" content="2.12.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -310,6 +310,7 @@
                 </div>
                 <p id="sync-time" class="text-[10px] font-bold text-slate-400"></p>
             </div>
+            <p id="app-version-label" class="text-center text-[10px] font-bold text-slate-300 dark:text-slate-600"></p>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <p class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Respaldo local</p>
@@ -814,16 +815,27 @@
     function getPrefix() {
         return `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
     }
+    // Normaliza un nombre para comparar: sin acentos, minúsculas, sin espacios extra
+    function normName(s) {
+        return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    }
+
     // Color por persona: primero el elegido en Configuración (settings.colors),
-    // si no hay, uno estable según su posición en la lista de pagadores
+    // si no hay, uno estable según su posición en la lista de pagadores.
+    // La búsqueda tolera diferencias de mayúsculas/acentos en datos antiguos.
     function getPayerColor(name) {
         const s = appData.settings || {};
         const colors = s.colors || {};
         if(colors[name] !== undefined && palette[colors[name]]) return palette[colors[name]];
+        const nn = normName(name);
+        // Match normalizado contra los colores elegidos
+        for(const [key, idx] of Object.entries(colors)) {
+            if(normName(key) === nn && palette[idx]) return palette[idx];
+        }
         const payers = (s.payers && s.payers.length) ? s.payers : ['Papá','Mamá'];
-        let idx = payers.indexOf(name);
+        let idx = payers.findIndex(p => normName(p) === nn);
         if(idx < 0) {
-            if(name && name === (s.workerName || 'Niñera')) idx = payers.length;
+            if(nn && nn === normName(s.workerName || 'Niñera')) idx = payers.length;
             else {
                 let h = 0;
                 for(const ch of String(name||'')) h = (h*31 + ch.charCodeAt(0)) >>> 0;
@@ -2111,6 +2123,8 @@
             setTimeout(() => showToast('¡App actualizada! ✅'), 900);
         }
         if(currentVersion) localStorage.setItem('ninera_app_version', currentVersion);
+        const vLabel = document.getElementById('app-version-label');
+        if(vLabel) vLabel.textContent = 'Versión ' + currentVersion;
 
         // Service Worker: registrar controllerchange ANTES de register() para no perder el evento
         if('serviceWorker' in navigator) {
