@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.15.0">
+    <meta name="app-version" content="2.16.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -1038,6 +1038,14 @@
     // ═══════════════════════════════════
     // VISTA PAGOS
     // ═══════════════════════════════════
+    // Filtro activo: null (todo), '__pending__' (solo pendientes) o el nombre de un pagador
+    let paymentFilter = null;
+
+    function setPaymentFilter(f) {
+        paymentFilter = (f === null || paymentFilter === f) ? null : f;
+        renderPayments();
+    }
+
     function renderPayments() {
         document.getElementById('paymentsMonthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
 
@@ -1047,10 +1055,13 @@
         // Tarjetas por pagador
         const cards = document.getElementById('payerCards');
         const payerEntries = Object.entries(byPayer);
+        const sel = s => paymentFilter === s
+            ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #6366f1;'
+            : 'opacity:' + (paymentFilter ? '0.5;' : '1;');
 
         let cardsHtml = '';
         // Tarjeta pendiente — acumulado de todos los meses
-        cardsHtml += `<div style="background:linear-gradient(135deg,#f59e0b,#d97706)" class="rounded-2xl p-4 shadow-sm">
+        cardsHtml += `<div onclick="setPaymentFilter('__pending__')" style="background:linear-gradient(135deg,#f59e0b,#d97706);${sel('__pending__')}" class="rounded-2xl p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all">
             <div class="text-[10px] font-extrabold text-white/80 uppercase mb-1">${pendingOtherMonths > 0 ? 'Pendiente total' : 'Pendiente'}</div>
             <div class="text-2xl font-extrabold text-white">${fmt(pending)}</div>
             <div class="text-[11px] text-white/70 mt-0.5">${pendingDays} día${pendingDays!==1?'s':''}${pendingOtherMonths > 0 ? ' · incluye meses anteriores' : ''}</div>
@@ -1059,7 +1070,8 @@
         payerEntries.forEach(([name,data]) => {
             const c = getPayerColor(name, colorMap);
             const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-            cardsHtml += `<div style="background:${c.grad}" class="rounded-2xl p-4 shadow-sm">
+            const safe = name.replace(/'/g,"\\'");
+            cardsHtml += `<div onclick="setPaymentFilter('${safe}')" style="background:${c.grad};${sel(name)}" class="rounded-2xl p-4 shadow-sm cursor-pointer active:scale-[0.97] transition-all">
                 <div class="flex items-center gap-1.5 mb-1">
                     <div class="w-5 h-5 rounded-full bg-white/25 flex items-center justify-center text-[9px] font-extrabold text-white">${initials}</div>
                     <div class="text-[10px] font-extrabold uppercase text-white/80">${name}</div>
@@ -1072,17 +1084,38 @@
 
         // Lista detalle
         const prefix = getPrefix();
+        const fPending = paymentFilter === '__pending__';
+        const fPayer   = paymentFilter && !fPending ? paymentFilter : null;
+
         // Pendientes: TODOS los meses (deuda acumulada, no desaparece al cambiar de mes)
-        const pendingList = Object.entries(appData.entries)
+        let pendingList = Object.entries(appData.entries)
             .filter(([,e]) => e.worked && !e.isPaid)
             .sort(([a],[b]) => a.localeCompare(b));
         // Pagados: solo del mes en curso
-        const paidList = Object.entries(appData.entries)
+        let paidList = Object.entries(appData.entries)
             .filter(([k,e]) => k.startsWith(prefix) && e.worked && e.isPaid)
             .sort(([a],[b]) => a.localeCompare(b));
 
+        // Filtro por tarjeta: pendientes, o todo lo de una persona
+        if(fPending) paidList = [];
+        if(fPayer) {
+            pendingList = pendingList.filter(([,e]) => e.paidBy && nameMatches(e.paidBy, fPayer));
+            paidList    = paidList.filter(([,e]) => e.paidBy && nameMatches(e.paidBy, fPayer));
+        }
+
+        // Aviso de filtro activo con botón para quitarlo
+        let filterBar = '';
+        if(paymentFilter) {
+            const label = fPending ? 'Solo pendientes' : 'Solo ' + fPayer;
+            filterBar = `<div class="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl px-3 py-2 mb-3">
+                <span class="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300">Filtro: ${label}</span>
+                <button onclick="setPaymentFilter(null)" class="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-300 underline">Ver todo</button>
+            </div>`;
+        }
+
         if(!pendingList.length && !paidList.length) {
-            document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-8">Sin registros este mes</div>`;
+            document.getElementById('paymentList').innerHTML = filterBar +
+                `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-8">${paymentFilter ? 'Nada que mostrar con este filtro' : 'Sin registros este mes'}</div>`;
             return;
         }
 
@@ -1113,7 +1146,7 @@
             </div>`;
         };
 
-        let html = '';
+        let html = filterBar;
         if(pendingList.length) {
             const tot = pendingList.reduce((s,[,e])=>s+(e.amount||0),0);
             const anyOther = pendingList.some(([k]) => !k.startsWith(prefix));
@@ -1217,12 +1250,14 @@
         currentMonth += dir;
         if(currentMonth<0) { currentMonth=11; currentYear--; }
         if(currentMonth>11) { currentMonth=0; currentYear++; }
+        paymentFilter = null;
         if(currentViewName==='calendar') renderCalendar();
         else if(currentViewName==='payments') renderPayments();
     }
     function goToday() {
         currentYear = new Date().getFullYear();
         currentMonth = new Date().getMonth();
+        paymentFilter = null;
         if(currentViewName==='calendar') renderCalendar();
         else if(currentViewName==='payments') renderPayments();
     }
