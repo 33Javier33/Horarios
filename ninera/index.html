@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.14.0">
+    <meta name="app-version" content="2.15.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -170,7 +170,7 @@
                 </div>
                 <div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-3 text-center">
                     <div id="summaryPending" class="text-lg font-extrabold text-amber-600 dark:text-amber-400">$0</div>
-                    <div class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
+                    <div id="summaryPendingLabel" class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
                 </div>
                 <div class="bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl p-3 text-center">
                     <div id="summaryPaid" class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400">$0</div>
@@ -875,23 +875,30 @@
     // ═══════════════════════════════════
     // CALCULAR TOTALES DEL MES
     // ═══════════════════════════════════
+    // Los PAGADOS son mensuales; los PENDIENTES se acumulan de todos los meses
+    // (una deuda no desaparece porque cambie el mes)
     function calcMonthTotals() {
         const prefix = getPrefix();
-        let days=0, pending=0, paid=0;
+        let days=0, paid=0;
+        let pending=0, pendingDays=0, pendingOtherMonths=0;
         const byPayer = {};
         Object.entries(appData.entries).forEach(([k,e]) => {
-            if(!k.startsWith(prefix) || !e.worked) return;
-            days++;
+            if(!e.worked) return;
+            const isThisMonth = k.startsWith(prefix);
+            if(isThisMonth) days++;
             if(e.isPaid && e.paidBy) {
+                if(!isThisMonth) return;          // pagados: solo del mes en curso
                 paid += (e.amount||0);
                 if(!byPayer[e.paidBy]) byPayer[e.paidBy] = { days:0, amount:0 };
                 byPayer[e.paidBy].days++;
                 byPayer[e.paidBy].amount += (e.amount||0);
             } else {
-                pending += (e.amount||0);
+                pending += (e.amount||0);         // pendientes: de todos los meses
+                pendingDays++;
+                if(!isThisMonth) pendingOtherMonths += (e.amount||0);
             }
         });
-        return { days, pending, paid, byPayer };
+        return { days, pending, pendingDays, pendingOtherMonths, paid, byPayer };
     }
 
     // ═══════════════════════════════════
@@ -935,10 +942,12 @@
         grid.innerHTML = html;
 
         // Resumen en header
-        const { days, pending, paid, byPayer } = calcMonthTotals();
+        const { days, pending, pendingOtherMonths, paid, byPayer } = calcMonthTotals();
         document.getElementById('summaryDays').textContent = days;
         document.getElementById('summaryPending').textContent = fmt(pending);
         document.getElementById('summaryPaid').textContent = fmt(paid);
+        const pendLbl = document.getElementById('summaryPendingLabel');
+        if(pendLbl) pendLbl.textContent = pendingOtherMonths > 0 ? 'Pendiente total' : 'Pendiente';
 
         // Chips pagadores
         const payers = Object.entries(byPayer);
@@ -1032,20 +1041,19 @@
     function renderPayments() {
         document.getElementById('paymentsMonthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
 
-        const { days, pending, paid, byPayer } = calcMonthTotals();
+        const { pending, pendingDays, pendingOtherMonths, byPayer } = calcMonthTotals();
         const colorMap = {};
 
         // Tarjetas por pagador
         const cards = document.getElementById('payerCards');
         const payerEntries = Object.entries(byPayer);
 
-        const pendingDays = days - payerEntries.reduce((s,[,d])=>s+d.days,0);
         let cardsHtml = '';
-        // Tarjeta pendiente — gradiente ámbar siempre legible
+        // Tarjeta pendiente — acumulado de todos los meses
         cardsHtml += `<div style="background:linear-gradient(135deg,#f59e0b,#d97706)" class="rounded-2xl p-4 shadow-sm">
-            <div class="text-[10px] font-extrabold text-white/80 uppercase mb-1">Pendiente</div>
+            <div class="text-[10px] font-extrabold text-white/80 uppercase mb-1">${pendingOtherMonths > 0 ? 'Pendiente total' : 'Pendiente'}</div>
             <div class="text-2xl font-extrabold text-white">${fmt(pending)}</div>
-            <div class="text-[11px] text-white/70 mt-0.5">${pendingDays} día${pendingDays!==1?'s':''}</div>
+            <div class="text-[11px] text-white/70 mt-0.5">${pendingDays} día${pendingDays!==1?'s':''}${pendingOtherMonths > 0 ? ' · incluye meses anteriores' : ''}</div>
         </div>`;
         // Tarjetas por pagador — gradiente sólido con texto blanco
         payerEntries.forEach(([name,data]) => {
@@ -1064,18 +1072,21 @@
 
         // Lista detalle
         const prefix = getPrefix();
-        const entries = Object.entries(appData.entries)
-            .filter(([k,e]) => k.startsWith(prefix) && e.worked)
+        // Pendientes: TODOS los meses (deuda acumulada, no desaparece al cambiar de mes)
+        const pendingList = Object.entries(appData.entries)
+            .filter(([,e]) => e.worked && !e.isPaid)
+            .sort(([a],[b]) => a.localeCompare(b));
+        // Pagados: solo del mes en curso
+        const paidList = Object.entries(appData.entries)
+            .filter(([k,e]) => k.startsWith(prefix) && e.worked && e.isPaid)
             .sort(([a],[b]) => a.localeCompare(b));
 
-        if(!entries.length) {
+        if(!pendingList.length && !paidList.length) {
             document.getElementById('paymentList').innerHTML = `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-8">Sin registros este mes</div>`;
             return;
         }
 
         const colorMap2 = {};
-        const pendingList = entries.filter(([,e]) => !e.isPaid);
-        const paidList = entries.filter(([,e]) => e.isPaid);
         const byPayerList = {};
         paidList.forEach(([dateStr,e]) => {
             const key = e.paidBy||'—';
@@ -1085,13 +1096,17 @@
 
         const dayCard = (dateStr, e, col) => {
             const d = new Date(dateStr+'T00:00:00');
-            return `<div onclick="openDay('${dateStr}')" class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+            const otherMonth = !dateStr.startsWith(prefix);
+            const monthTag = otherMonth
+                ? `<span class="text-[10px] font-extrabold text-amber-500 uppercase">${monthNames[d.getMonth()].slice(0,3)} ${d.getFullYear()}</span>`
+                : '';
+            return `<div onclick="openDay('${dateStr}')" class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform${otherMonth ? ' border border-amber-200 dark:border-amber-800/60' : ''}">
                 <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex flex-col items-center justify-center shrink-0">
                     <span class="text-[9px] font-extrabold text-slate-400 uppercase">${dNShort[d.getDay()]}</span>
                     <span class="text-base font-extrabold text-slate-700 dark:text-slate-100 leading-none">${d.getDate()}</span>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</div>
+                    <div class="flex items-center gap-2"><span class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${fmt(e.amount)}</span>${monthTag}</div>
                     ${e.note ? `<div class="text-[11px] text-slate-400 truncate">${e.note}</div>` : ''}
                 </div>
                 ${col ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 ${col.chip}">${e.paidBy}</span>` : (e.paidBy ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0" style="border:1.5px solid ${payerHex(e.paidBy)};color:${payerHex(e.paidBy)}">Pendiente · ${e.paidBy}</span>` : `<span class="text-[10px] font-extrabold px-2 py-1 rounded-full shrink-0 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300">Pendiente</span>`)}
@@ -1101,7 +1116,8 @@
         let html = '';
         if(pendingList.length) {
             const tot = pendingList.reduce((s,[,e])=>s+(e.amount||0),0);
-            html += `<div class="flex items-center justify-between py-2"><span class="text-[10px] font-extrabold text-amber-500 uppercase tracking-widest">Pendientes</span><span class="text-xs font-extrabold text-amber-600">${fmt(tot)}</span></div>`;
+            const anyOther = pendingList.some(([k]) => !k.startsWith(prefix));
+            html += `<div class="flex items-center justify-between py-2"><span class="text-[10px] font-extrabold text-amber-500 uppercase tracking-widest">Pendientes${anyOther ? ' · todos los meses' : ''}</span><span class="text-xs font-extrabold text-amber-600">${fmt(tot)}</span></div>`;
             html += `<div class="space-y-2 mb-4">${pendingList.map(([d,e])=>dayCard(d,e,null)).join('')}</div>`;
         }
         Object.entries(byPayerList).forEach(([payer,items]) => {
