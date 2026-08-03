@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.18.0">
+    <meta name="app-version" content="2.19.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -1162,9 +1162,10 @@
                 if(!inRange(k)) return;                 // pagados: solo del periodo
                 workedDays++;
                 totalPaid += (e.amount || 0);
-                if(!paidBy[e.paidBy]) paidBy[e.paidBy] = { days:0, amount:0 };
+                if(!paidBy[e.paidBy]) paidBy[e.paidBy] = { days:0, amount:0, items:[] };
                 paidBy[e.paidBy].days++;
                 paidBy[e.paidBy].amount += (e.amount || 0);
+                paidBy[e.paidBy].items.push({ date:k, amount:e.amount||0, note:e.note||'' });
                 if(!monthly[ym]) monthly[ym] = { paid:0, pending:0, days:0 };
                 monthly[ym].paid += (e.amount || 0);
                 monthly[ym].days++;
@@ -1173,15 +1174,20 @@
                 totalPending += (e.amount || 0);
                 pendingDays++;
                 const key = e.paidBy || 'Sin asignar';
-                if(!pendingBy[key]) pendingBy[key] = { days:0, amount:0 };
+                if(!pendingBy[key]) pendingBy[key] = { days:0, amount:0, items:[] };
                 pendingBy[key].days++;
                 pendingBy[key].amount += (e.amount || 0);
+                pendingBy[key].items.push({ date:k, amount:e.amount||0, note:e.note||'' });
                 if(inRange(k)) workedDays++;
                 if(!monthly[ym]) monthly[ym] = { paid:0, pending:0, days:0 };
                 monthly[ym].pending += (e.amount || 0);
                 monthly[ym].days++;
             }
         });
+
+        // Ordenar los detalles por fecha
+        Object.values(paidBy).forEach(d => d.items.sort((a,b) => a.date.localeCompare(b.date)));
+        Object.values(pendingBy).forEach(d => d.items.sort((a,b) => a.date.localeCompare(b.date)));
 
         return { workedDays, totalPaid, totalPending, pendingDays, paidBy, pendingBy, monthly };
     }
@@ -1255,12 +1261,24 @@
                 <div class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
             </div>`;
 
-        // Pagado por persona, con barra de proporción
+        // Filas de detalle: fecha · monto (con nota si existe)
+        const detailRows = (items, hx) => items.map(it => {
+            const d = new Date(it.date + 'T00:00:00');
+            const fecha = `${dNShort[d.getDay()]} ${d.getDate()} ${monthNames[d.getMonth()].slice(0,3).toLowerCase()}${reportRange !== 'month' ? ' ' + d.getFullYear() : ''}`;
+            return `<div class="flex items-baseline gap-2 py-1.5 border-t border-slate-100 dark:border-slate-700/60">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0" style="width:82px">${fecha}</span>
+                <span class="flex-1 min-w-0 text-[10px] text-slate-400 truncate">${it.note ? it.note.replace(/\n/g,' ') : ''}</span>
+                <span class="text-xs font-extrabold shrink-0" style="color:${hx}">${fmt(it.amount)}</span>
+            </div>`;
+        }).join('');
+
+        // Pagado por persona: detalle de fechas + total
         const payers = Object.entries(r.paidBy).sort((a,b) => b[1].amount - a[1].amount);
         const byPayerEl = document.getElementById('reportByPayer');
         byPayerEl.innerHTML = payers.length ? payers.map(([name, d]) => {
             const pct = r.totalPaid ? Math.round(d.amount / r.totalPaid * 100) : 0;
             const c = getPayerColor(name);
+            const hx = payerHex(name);
             const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
             return `<div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm">
                 <div class="flex items-center gap-2.5 mb-2">
@@ -1271,25 +1289,46 @@
                     </div>
                     <div class="font-extrabold text-slate-800 dark:text-white text-sm shrink-0">${fmt(d.amount)}</div>
                 </div>
-                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden mb-1">
                     <div class="h-full rounded-full" style="width:${pct}%;background:${c.grad}"></div>
+                </div>
+                ${detailRows(d.items, hx)}
+                <div class="flex items-baseline gap-2 pt-2 mt-1 border-t-2 border-slate-200 dark:border-slate-600">
+                    <span class="flex-1 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Total ${name}</span>
+                    <span class="text-sm font-extrabold" style="color:${hx}">${fmt(d.amount)}</span>
                 </div>
             </div>`;
         }).join('') : `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-6">Sin pagos en este periodo</div>`;
 
-        // Pendientes por persona
+        // Pendientes por persona: detalle de fechas + total
         const pend = Object.entries(r.pendingBy).sort((a,b) => b[1].amount - a[1].amount);
-        document.getElementById('reportPending').innerHTML = pend.length ? pend.map(([name, d]) => {
+        const pendEl = document.getElementById('reportPending');
+        let pendHtml = pend.length ? pend.map(([name, d]) => {
             const unassigned = name === 'Sin asignar';
             const hx = unassigned ? '#f59e0b' : payerHex(name);
-            return `<div class="flex items-center gap-2.5 bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm" style="border-left:4px solid ${hx}">
-                <div class="flex-1 min-w-0">
-                    <div class="font-extrabold text-slate-800 dark:text-white text-sm truncate">${unassigned ? 'Sin asignar' : name}</div>
-                    <div class="text-[11px] text-slate-400 font-semibold">${d.days} día${d.days!==1?'s':''} por pagar</div>
+            return `<div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm" style="border-left:4px solid ${hx}">
+                <div class="flex items-center gap-2.5 mb-1">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-slate-800 dark:text-white text-sm truncate">${unassigned ? 'Sin asignar' : name}</div>
+                        <div class="text-[11px] text-slate-400 font-semibold">${d.days} día${d.days!==1?'s':''} por pagar</div>
+                    </div>
+                    <div class="font-extrabold text-sm shrink-0" style="color:${hx}">${fmt(d.amount)}</div>
                 </div>
-                <div class="font-extrabold text-sm shrink-0" style="color:${hx}">${fmt(d.amount)}</div>
+                ${detailRows(d.items, hx)}
+                <div class="flex items-baseline gap-2 pt-2 mt-1 border-t-2 border-slate-200 dark:border-slate-600">
+                    <span class="flex-1 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">Total ${unassigned ? 'sin asignar' : name}</span>
+                    <span class="text-sm font-extrabold" style="color:${hx}">${fmt(d.amount)}</span>
+                </div>
             </div>`;
         }).join('') : `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-6">Todo al día ✅</div>`;
+        // Total general de pendientes cuando hay más de un grupo
+        if(pend.length > 1) {
+            pendHtml += `<div class="flex items-baseline gap-2 bg-amber-50 dark:bg-amber-900/30 rounded-2xl px-3.5 py-3">
+                <span class="flex-1 text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Total pendiente</span>
+                <span class="text-base font-extrabold text-amber-600 dark:text-amber-400">${fmt(r.totalPending)}</span>
+            </div>`;
+        }
+        pendEl.innerHTML = pendHtml;
 
         // Mes a mes (solo en Año / Todo)
         const wrap = document.getElementById('reportMonthlyWrap');
@@ -1318,19 +1357,36 @@
         const periodo = reportRange === 'month' ? `${monthNames[repMonth]} ${repYear}`
                       : reportRange === 'year'  ? `Año ${repYear}` : 'Historial completo';
         const worker = appData.settings.workerName || 'Niñera';
-        let t = `📋 INFORME · ${worker}\n${periodo}${reportPerson ? ` · Solo ${reportPerson}` : ''}\n\n`;
+        const fecha = ds => {
+            const d = new Date(ds + 'T00:00:00');
+            return `${dNShort[d.getDay()]} ${String(d.getDate()).padStart(2,' ')} ${monthNames[d.getMonth()].slice(0,3).toLowerCase()} ${d.getFullYear()}`;
+        };
+
+        let t = `📋 INFORME · ${worker}\n${periodo}${reportPerson ? ` · Solo ${reportPerson}` : ''}\n`;
+        t += `${'─'.repeat(30)}\n`;
         t += `Días trabajados: ${r.workedDays}\n`;
         t += `Total pagado: ${fmt(r.totalPaid)}\n`;
         t += `Total pendiente: ${fmt(r.totalPending)}\n`;
+
         const payers = Object.entries(r.paidBy).sort((a,b) => b[1].amount - a[1].amount);
         if(payers.length) {
-            t += `\n— Pagado por persona —\n`;
-            payers.forEach(([n,d]) => { t += `${n}: ${fmt(d.amount)} (${d.days} día${d.days!==1?'s':''})\n`; });
+            t += `\n💰 PAGADO\n`;
+            payers.forEach(([n,d]) => {
+                t += `\n${n} — ${d.days} día${d.days!==1?'s':''}\n`;
+                d.items.forEach(it => { t += `  ${fecha(it.date)}   ${fmt(it.amount)}${it.note ? '   · ' + it.note.replace(/\n/g,' ') : ''}\n`; });
+                t += `  TOTAL ${n}: ${fmt(d.amount)}\n`;
+            });
         }
+
         const pend = Object.entries(r.pendingBy).sort((a,b) => b[1].amount - a[1].amount);
         if(pend.length) {
-            t += `\n— Pendiente de pago —\n`;
-            pend.forEach(([n,d]) => { t += `${n}: ${fmt(d.amount)} (${d.days} día${d.days!==1?'s':''})\n`; });
+            t += `\n⏳ PENDIENTE DE PAGO\n`;
+            pend.forEach(([n,d]) => {
+                t += `\n${n} — ${d.days} día${d.days!==1?'s':''}\n`;
+                d.items.forEach(it => { t += `  ${fecha(it.date)}   ${fmt(it.amount)}${it.note ? '   · ' + it.note.replace(/\n/g,' ') : ''}\n`; });
+                t += `  TOTAL ${n}: ${fmt(d.amount)}\n`;
+            });
+            t += `\nTOTAL PENDIENTE: ${fmt(r.totalPending)}\n`;
         }
         return t;
     }
