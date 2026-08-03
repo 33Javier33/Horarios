@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.16.0">
+    <meta name="app-version" content="2.17.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -260,6 +260,61 @@
         <div class="px-4">
             <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2">Detalle</p>
             <div id="paymentList" class="space-y-1"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════ -->
+    <!-- VISTA: INFORME                -->
+    <!-- ══════════════════════════════ -->
+    <div id="view-report" class="view">
+
+        <!-- Header -->
+        <div class="sticky top-0 z-30 bg-white dark:bg-slate-900 shadow-sm px-4 pt-5 pb-3">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h1 class="text-xl font-extrabold text-slate-800 dark:text-white">Informe</h1>
+                    <p id="reportPeriodLabel" class="text-sm font-semibold text-slate-400 dark:text-slate-500"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="setView('messages')" class="relative w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <div id="bell-badge-rep" class="badge" style="display:none;min-width:8px;width:8px;height:8px;top:-1px;right:-1px;padding:0"></div>
+                    </button>
+                    <button onclick="showIdentityScreen()" id="user-avatar-rep" title="Cambiar usuario" class="w-9 h-9 flex items-center justify-center rounded-full text-white text-xs font-extrabold flex-shrink-0" style="background:#6366f1">?</button>
+                    <button onclick="toggleDark()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-lg">☀️</button>
+                </div>
+            </div>
+            <!-- Selector de periodo -->
+            <div class="flex gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1">
+                <button id="rep-tab-month" onclick="setReportRange('month')" class="flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors">Mes</button>
+                <button id="rep-tab-year"  onclick="setReportRange('year')"  class="flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors">Año</button>
+                <button id="rep-tab-all"   onclick="setReportRange('all')"   class="flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors">Todo</button>
+            </div>
+        </div>
+
+        <div class="px-4 mt-4 space-y-4 pb-4">
+            <!-- Totales generales -->
+            <div id="reportTotals" class="grid grid-cols-3 gap-2"></div>
+            <!-- Aporte por persona -->
+            <div>
+                <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2">Pagado por persona</p>
+                <div id="reportByPayer" class="space-y-2"></div>
+            </div>
+            <!-- Pendientes -->
+            <div>
+                <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2">Pendiente de pago</p>
+                <div id="reportPending" class="space-y-2"></div>
+            </div>
+            <!-- Desglose por mes -->
+            <div id="reportMonthlyWrap">
+                <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-2">Mes a mes</p>
+                <div id="reportMonthly" class="space-y-1.5"></div>
+            </div>
+            <!-- Compartir -->
+            <button onclick="shareReport()" class="w-full py-3.5 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm flex items-center justify-center gap-2">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Compartir informe
+            </button>
         </div>
     </div>
 
@@ -657,6 +712,10 @@
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
         <span>Pagos</span>
     </button>
+    <button id="nav-report" class="nav-btn" onclick="setView('report')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3-4 3 3 5-7"/></svg>
+        <span>Informe</span>
+    </button>
     <button id="nav-messages" class="nav-btn" onclick="setView('messages')" style="position:relative">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>Mensajes</span>
@@ -778,7 +837,7 @@
     // ═══════════════════════════════════
     function setView(name) {
         currentViewName = name;
-        ['calendar','payments','messages','settings','help'].forEach(v => {
+        ['calendar','payments','report','messages','settings','help'].forEach(v => {
             const el = document.getElementById(`view-${v}`);
             if(el) el.classList.toggle('active', v===name);
             const nav = document.getElementById(`nav-${v}`);
@@ -787,6 +846,7 @@
         if(name === 'messages') { markMessagesRead(); renderMessages(); if(window._adjustMsgView) window._adjustMsgView(); }
         if(name==='calendar') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderCalendar(); }
         if(name==='payments') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderPayments(); }
+        if(name==='report') { localStorage.removeItem('ninera_cal_unseen'); updateBellBadge(); renderReport(); }
         if(name==='settings') loadSettingsForm();
     }
 
@@ -1036,6 +1096,181 @@
     }
 
     // ═══════════════════════════════════
+    // VISTA INFORME
+    // ═══════════════════════════════════
+    let reportRange = 'month'; // 'month' | 'year' | 'all'
+
+    function setReportRange(r) { reportRange = r; renderReport(); }
+
+    // Recolecta los datos del periodo elegido.
+    // Los pendientes SIEMPRE se cuentan completos (deuda acumulada de todos los meses).
+    function calcReport() {
+        const monthPrefix = getPrefix();
+        const yearPrefix  = `${currentYear}-`;
+        const inRange = k => reportRange === 'all' ? true
+                          : reportRange === 'year' ? k.startsWith(yearPrefix)
+                          : k.startsWith(monthPrefix);
+
+        let workedDays = 0, totalPaid = 0, totalPending = 0, pendingDays = 0;
+        const paidBy = {};      // nombre -> { days, amount }
+        const pendingBy = {};   // nombre|'Sin asignar' -> { days, amount }
+        const monthly = {};     // 'YYYY-MM' -> { paid, pending, days }
+
+        Object.entries(appData.entries).forEach(([k, e]) => {
+            if(!e || !e.worked) return;
+            const ym = k.slice(0, 7);
+
+            if(e.isPaid && e.paidBy) {
+                if(!inRange(k)) return;                 // pagados: solo del periodo
+                workedDays++;
+                totalPaid += (e.amount || 0);
+                if(!paidBy[e.paidBy]) paidBy[e.paidBy] = { days:0, amount:0 };
+                paidBy[e.paidBy].days++;
+                paidBy[e.paidBy].amount += (e.amount || 0);
+                if(!monthly[ym]) monthly[ym] = { paid:0, pending:0, days:0 };
+                monthly[ym].paid += (e.amount || 0);
+                monthly[ym].days++;
+            } else {
+                // pendientes: siempre completos, sin importar el periodo
+                totalPending += (e.amount || 0);
+                pendingDays++;
+                const key = e.paidBy || 'Sin asignar';
+                if(!pendingBy[key]) pendingBy[key] = { days:0, amount:0 };
+                pendingBy[key].days++;
+                pendingBy[key].amount += (e.amount || 0);
+                if(inRange(k)) workedDays++;
+                if(!monthly[ym]) monthly[ym] = { paid:0, pending:0, days:0 };
+                monthly[ym].pending += (e.amount || 0);
+                monthly[ym].days++;
+            }
+        });
+
+        return { workedDays, totalPaid, totalPending, pendingDays, paidBy, pendingBy, monthly };
+    }
+
+    function renderReport() {
+        const r = calcReport();
+
+        // Etiqueta del periodo + pestañas
+        document.getElementById('reportPeriodLabel').textContent =
+            reportRange === 'month' ? `${monthNames[currentMonth]} ${currentYear}`
+          : reportRange === 'year'  ? `Año ${currentYear}`
+          : 'Historial completo';
+        ['month','year','all'].forEach(k => {
+            const b = document.getElementById('rep-tab-' + k);
+            if(!b) return;
+            const on = reportRange === k;
+            b.style.background = on ? '#6366f1' : 'transparent';
+            b.style.color = on ? '#fff' : '#94a3b8';
+        });
+
+        // Totales
+        document.getElementById('reportTotals').innerHTML = `
+            <div class="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-3 text-center">
+                <div class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">${r.workedDays}</div>
+                <div class="text-[10px] font-bold text-emerald-500 uppercase">Días</div>
+            </div>
+            <div class="bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl p-3 text-center">
+                <div class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400">${fmt(r.totalPaid)}</div>
+                <div class="text-[10px] font-bold text-indigo-500 uppercase">Pagado</div>
+            </div>
+            <div class="bg-amber-50 dark:bg-amber-900/30 rounded-2xl p-3 text-center">
+                <div class="text-lg font-extrabold text-amber-600 dark:text-amber-400">${fmt(r.totalPending)}</div>
+                <div class="text-[10px] font-bold text-amber-500 uppercase">Pendiente</div>
+            </div>`;
+
+        // Pagado por persona, con barra de proporción
+        const payers = Object.entries(r.paidBy).sort((a,b) => b[1].amount - a[1].amount);
+        const byPayerEl = document.getElementById('reportByPayer');
+        byPayerEl.innerHTML = payers.length ? payers.map(([name, d]) => {
+            const pct = r.totalPaid ? Math.round(d.amount / r.totalPaid * 100) : 0;
+            const c = getPayerColor(name);
+            const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+            return `<div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm">
+                <div class="flex items-center gap-2.5 mb-2">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white shrink-0" style="background:${c.grad}">${initials}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-slate-800 dark:text-white text-sm truncate">${name}</div>
+                        <div class="text-[11px] text-slate-400 font-semibold">${d.days} día${d.days!==1?'s':''} · ${pct}% del total</div>
+                    </div>
+                    <div class="font-extrabold text-slate-800 dark:text-white text-sm shrink-0">${fmt(d.amount)}</div>
+                </div>
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div class="h-full rounded-full" style="width:${pct}%;background:${c.grad}"></div>
+                </div>
+            </div>`;
+        }).join('') : `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-6">Sin pagos en este periodo</div>`;
+
+        // Pendientes por persona
+        const pend = Object.entries(r.pendingBy).sort((a,b) => b[1].amount - a[1].amount);
+        document.getElementById('reportPending').innerHTML = pend.length ? pend.map(([name, d]) => {
+            const unassigned = name === 'Sin asignar';
+            const hx = unassigned ? '#f59e0b' : payerHex(name);
+            return `<div class="flex items-center gap-2.5 bg-white dark:bg-slate-800 rounded-2xl p-3.5 shadow-sm" style="border-left:4px solid ${hx}">
+                <div class="flex-1 min-w-0">
+                    <div class="font-extrabold text-slate-800 dark:text-white text-sm truncate">${unassigned ? 'Sin asignar' : name}</div>
+                    <div class="text-[11px] text-slate-400 font-semibold">${d.days} día${d.days!==1?'s':''} por pagar</div>
+                </div>
+                <div class="font-extrabold text-sm shrink-0" style="color:${hx}">${fmt(d.amount)}</div>
+            </div>`;
+        }).join('') : `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-6">Todo al día ✅</div>`;
+
+        // Mes a mes (solo en Año / Todo)
+        const wrap = document.getElementById('reportMonthlyWrap');
+        if(reportRange === 'month') { wrap.style.display = 'none'; }
+        else {
+            wrap.style.display = 'block';
+            const months = Object.entries(r.monthly).sort((a,b) => b[0].localeCompare(a[0]));
+            document.getElementById('reportMonthly').innerHTML = months.length ? months.map(([ym, d]) => {
+                const [y, m] = ym.split('-');
+                return `<div class="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-extrabold text-slate-700 dark:text-slate-100 text-sm">${monthNames[parseInt(m,10)-1]} ${y}</div>
+                        <div class="text-[10px] text-slate-400 font-semibold">${d.days} día${d.days!==1?'s':''}</div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">${fmt(d.paid)}</div>
+                        ${d.pending ? `<div class="text-[10px] font-bold text-amber-500">${fmt(d.pending)} pend.</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('') : `<div class="text-center text-sm text-slate-400 dark:text-slate-600 py-4">Sin datos</div>`;
+        }
+    }
+
+    function reportAsText() {
+        const r = calcReport();
+        const periodo = reportRange === 'month' ? `${monthNames[currentMonth]} ${currentYear}`
+                      : reportRange === 'year'  ? `Año ${currentYear}` : 'Historial completo';
+        const worker = appData.settings.workerName || 'Niñera';
+        let t = `📋 INFORME · ${worker}\n${periodo}\n\n`;
+        t += `Días trabajados: ${r.workedDays}\n`;
+        t += `Total pagado: ${fmt(r.totalPaid)}\n`;
+        t += `Total pendiente: ${fmt(r.totalPending)}\n`;
+        const payers = Object.entries(r.paidBy).sort((a,b) => b[1].amount - a[1].amount);
+        if(payers.length) {
+            t += `\n— Pagado por persona —\n`;
+            payers.forEach(([n,d]) => { t += `${n}: ${fmt(d.amount)} (${d.days} día${d.days!==1?'s':''})\n`; });
+        }
+        const pend = Object.entries(r.pendingBy).sort((a,b) => b[1].amount - a[1].amount);
+        if(pend.length) {
+            t += `\n— Pendiente de pago —\n`;
+            pend.forEach(([n,d]) => { t += `${n}: ${fmt(d.amount)} (${d.days} día${d.days!==1?'s':''})\n`; });
+        }
+        return t;
+    }
+
+    async function shareReport() {
+        const text = reportAsText();
+        try {
+            if(navigator.share) { await navigator.share({ title: 'Informe Registro Niñera', text }); return; }
+            await navigator.clipboard.writeText(text);
+            showToast('Informe copiado 📋');
+        } catch(e) {
+            try { await navigator.clipboard.writeText(text); showToast('Informe copiado 📋'); } catch(e2) {}
+        }
+    }
+
+    // ═══════════════════════════════════
     // VISTA PAGOS
     // ═══════════════════════════════════
     // Filtro activo: null (todo), '__pending__' (solo pendientes) o el nombre de un pagador
@@ -1253,6 +1488,7 @@
         paymentFilter = null;
         if(currentViewName==='calendar') renderCalendar();
         else if(currentViewName==='payments') renderPayments();
+        else if(currentViewName==='report') renderReport();
     }
     function goToday() {
         currentYear = new Date().getFullYear();
@@ -1260,6 +1496,7 @@
         paymentFilter = null;
         if(currentViewName==='calendar') renderCalendar();
         else if(currentViewName==='payments') renderPayments();
+        else if(currentViewName==='report') renderReport();
     }
 
     // ═══════════════════════════════════
@@ -1486,7 +1723,7 @@
         const me = myIdentity();
         const c = getPayerColor(me);
         const initials = me !== 'Yo' ? me.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
-        ['user-avatar-cal', 'user-avatar-pay', 'user-avatar-set'].forEach(id => {
+        ['user-avatar-cal', 'user-avatar-pay', 'user-avatar-rep', 'user-avatar-set'].forEach(id => {
             const el = document.getElementById(id);
             if(el) { el.style.background = c.grad; el.textContent = initials; }
         });
@@ -1779,7 +2016,7 @@
         if(n === undefined) n = countUnread();
         const calUnseen = localStorage.getItem('ninera_cal_unseen') === '1';
         const hasAlert = n > 0 || calUnseen;
-        ['bell-badge-cal', 'bell-badge-pay', 'bell-badge-set'].forEach(id => {
+        ['bell-badge-cal', 'bell-badge-pay', 'bell-badge-rep', 'bell-badge-set'].forEach(id => {
             const el = document.getElementById(id);
             if(el) el.style.display = hasAlert ? 'flex' : 'none';
         });
@@ -1868,6 +2105,7 @@
                 }
                 if(currentViewName === 'calendar') renderCalendar();
                 else if(currentViewName === 'payments') renderPayments();
+                else if(currentViewName === 'report') renderReport();
                 else if(currentViewName === 'messages') renderMessages();
                 showSyncDot();
             }
