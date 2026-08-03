@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.17.0">
+    <meta name="app-version" content="2.18.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -91,6 +91,8 @@
         .help-warn { background:#fffbeb; border-left:3px solid #f59e0b; border-radius:0 12px 12px 0; padding:10px 12px; margin-top:8px; font-size:13px; color:#78350f; font-weight:600; }
         .dark .help-warn { background:#1c1407; color:#fcd34d; border-color:#d97706; }
         .color-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -290,6 +292,15 @@
                 <button id="rep-tab-year"  onclick="setReportRange('year')"  class="flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors">Año</button>
                 <button id="rep-tab-all"   onclick="setReportRange('all')"   class="flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors">Todo</button>
             </div>
+            <!-- Elegir mes / año -->
+            <div id="reportNav" class="flex items-center gap-2 mt-2">
+                <button onclick="changeReportMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold shrink-0">‹</button>
+                <select id="reportMonthSelect" onchange="pickReportPeriod(this.value)" class="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 dark:text-white text-xs font-extrabold outline-none border-none text-center"></select>
+                <button onclick="changeReportMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold shrink-0">›</button>
+                <button onclick="reportGoToday()" class="px-3 h-9 rounded-xl bg-indigo-600 text-white text-[10px] font-extrabold shrink-0">HOY</button>
+            </div>
+            <!-- Filtro por persona -->
+            <div id="reportPersonChips" class="flex gap-1.5 mt-2 overflow-x-auto no-scrollbar"></div>
         </div>
 
         <div class="px-4 mt-4 space-y-4 pb-4">
@@ -1099,14 +1110,39 @@
     // VISTA INFORME
     // ═══════════════════════════════════
     let reportRange = 'month'; // 'month' | 'year' | 'all'
+    // Periodo propio del informe (independiente del calendario)
+    let repMonth = new Date().getMonth();
+    let repYear  = new Date().getFullYear();
+    let reportPerson = null;   // null = todos; si no, nombre de la persona
 
     function setReportRange(r) { reportRange = r; renderReport(); }
+    function setReportPerson(p) { reportPerson = (p === '' || reportPerson === p) ? null : p; renderReport(); }
+
+    function changeReportMonth(dir) {
+        if(reportRange === 'year') { repYear += dir; }
+        else {
+            repMonth += dir;
+            if(repMonth < 0) { repMonth = 11; repYear--; }
+            if(repMonth > 11) { repMonth = 0; repYear++; }
+        }
+        renderReport();
+    }
+    function pickReportPeriod(val) {
+        if(reportRange === 'year') repYear = parseInt(val, 10);
+        else { const [y, m] = val.split('-'); repYear = parseInt(y,10); repMonth = parseInt(m,10) - 1; }
+        renderReport();
+    }
+    function reportGoToday() {
+        const t = new Date();
+        repMonth = t.getMonth(); repYear = t.getFullYear();
+        renderReport();
+    }
 
     // Recolecta los datos del periodo elegido.
     // Los pendientes SIEMPRE se cuentan completos (deuda acumulada de todos los meses).
     function calcReport() {
-        const monthPrefix = getPrefix();
-        const yearPrefix  = `${currentYear}-`;
+        const monthPrefix = `${repYear}-${String(repMonth+1).padStart(2,'0')}-`;
+        const yearPrefix  = `${repYear}-`;
         const inRange = k => reportRange === 'all' ? true
                           : reportRange === 'year' ? k.startsWith(yearPrefix)
                           : k.startsWith(monthPrefix);
@@ -1118,6 +1154,8 @@
 
         Object.entries(appData.entries).forEach(([k, e]) => {
             if(!e || !e.worked) return;
+            // Filtro por persona: solo lo de esa persona (pagado o por pagar)
+            if(reportPerson && !(e.paidBy && nameMatches(e.paidBy, reportPerson))) return;
             const ym = k.slice(0, 7);
 
             if(e.isPaid && e.paidBy) {
@@ -1153,9 +1191,9 @@
 
         // Etiqueta del periodo + pestañas
         document.getElementById('reportPeriodLabel').textContent =
-            reportRange === 'month' ? `${monthNames[currentMonth]} ${currentYear}`
-          : reportRange === 'year'  ? `Año ${currentYear}`
-          : 'Historial completo';
+            (reportRange === 'month' ? `${monthNames[repMonth]} ${repYear}`
+           : reportRange === 'year'  ? `Año ${repYear}`
+           : 'Historial completo') + (reportPerson ? ` · ${reportPerson}` : '');
         ['month','year','all'].forEach(k => {
             const b = document.getElementById('rep-tab-' + k);
             if(!b) return;
@@ -1163,6 +1201,44 @@
             b.style.background = on ? '#6366f1' : 'transparent';
             b.style.color = on ? '#fff' : '#94a3b8';
         });
+
+        // Selector de mes / año (oculto en "Todo")
+        const nav = document.getElementById('reportNav');
+        const selEl = document.getElementById('reportMonthSelect');
+        if(reportRange === 'all') { nav.style.display = 'none'; }
+        else {
+            nav.style.display = 'flex';
+            // Años/meses disponibles: los que tienen registros + el elegido + el actual
+            const keys = Object.keys(appData.entries || {});
+            const now = new Date();
+            if(reportRange === 'year') {
+                const years = new Set(keys.map(k => k.slice(0,4)));
+                years.add(String(repYear)); years.add(String(now.getFullYear()));
+                selEl.innerHTML = [...years].sort((a,b) => b.localeCompare(a))
+                    .map(y => `<option value="${y}"${+y===repYear?' selected':''}>Año ${y}</option>`).join('');
+            } else {
+                const yms = new Set(keys.map(k => k.slice(0,7)));
+                yms.add(`${repYear}-${String(repMonth+1).padStart(2,'0')}`);
+                yms.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+                const cur = `${repYear}-${String(repMonth+1).padStart(2,'0')}`;
+                selEl.innerHTML = [...yms].sort((a,b) => b.localeCompare(a)).map(ym => {
+                    const [y,m] = ym.split('-');
+                    return `<option value="${ym}"${ym===cur?' selected':''}>${monthNames[parseInt(m,10)-1]} ${y}</option>`;
+                }).join('');
+            }
+        }
+
+        // Chips de persona
+        const chipsEl = document.getElementById('reportPersonChips');
+        const people = (appData.settings.payers && appData.settings.payers.length) ? appData.settings.payers : ['Papá','Mamá'];
+        let chips = `<button onclick="setReportPerson('')" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-extrabold" style="${!reportPerson ? 'background:#6366f1;color:#fff' : 'background:rgba(148,163,184,0.18);color:#64748b'}">Todos</button>`;
+        people.forEach(p => {
+            const c = getPayerColor(p);
+            const on = reportPerson === p;
+            const safe = p.replace(/'/g,"\\'");
+            chips += `<button onclick="setReportPerson('${safe}')" class="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-extrabold" style="${on ? `background:${c.grad};color:#fff` : 'background:rgba(148,163,184,0.18);color:#64748b'}">${p}</button>`;
+        });
+        chipsEl.innerHTML = chips;
 
         // Totales
         document.getElementById('reportTotals').innerHTML = `
@@ -1239,10 +1315,10 @@
 
     function reportAsText() {
         const r = calcReport();
-        const periodo = reportRange === 'month' ? `${monthNames[currentMonth]} ${currentYear}`
-                      : reportRange === 'year'  ? `Año ${currentYear}` : 'Historial completo';
+        const periodo = reportRange === 'month' ? `${monthNames[repMonth]} ${repYear}`
+                      : reportRange === 'year'  ? `Año ${repYear}` : 'Historial completo';
         const worker = appData.settings.workerName || 'Niñera';
-        let t = `📋 INFORME · ${worker}\n${periodo}\n\n`;
+        let t = `📋 INFORME · ${worker}\n${periodo}${reportPerson ? ` · Solo ${reportPerson}` : ''}\n\n`;
         t += `Días trabajados: ${r.workedDays}\n`;
         t += `Total pagado: ${fmt(r.totalPaid)}\n`;
         t += `Total pendiente: ${fmt(r.totalPending)}\n`;
