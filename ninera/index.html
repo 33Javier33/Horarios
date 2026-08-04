@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.19.0">
+    <meta name="app-version" content="2.20.0">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -117,7 +117,37 @@
     <img src="./bg.png" style="width:55%;max-width:200px;object-fit:contain;margin-bottom:28px;mix-blend-mode:screen;opacity:0.92" alt="">
     <h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 6px;text-align:center">¿Quién está usando la app?</h2>
     <p style="color:#64748b;font-size:13px;font-weight:600;margin:0 0 28px;text-align:center;line-height:1.5">Selecciona tu nombre para que tus registros y mensajes queden identificados</p>
-    <div id="identity-options" style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px"></div>
+    <div id="identity-options" style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto"></div>
+</div>
+
+<!-- PANTALLA DE PIN -->
+<div id="pin-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0f172a 0%,#1e293b 100%);z-index:198;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
+    <div id="pin-avatar" style="width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;margin-bottom:16px">?</div>
+    <h2 style="color:#fff;font-size:20px;font-weight:800;margin:0 0 4px;text-align:center">Hola, <span id="pin-name"></span></h2>
+    <p style="color:#64748b;font-size:13px;font-weight:600;margin:0 0 22px;text-align:center">Ingresa tu PIN de 4 dígitos</p>
+
+    <div style="position:relative;width:100%;max-width:240px">
+        <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"
+               oninput="onPinInput()" onkeydown="if(event.key==='Enter')submitPin()"
+               style="width:100%;padding:16px 46px 16px 20px;border-radius:18px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.18);color:#fff;font-size:26px;font-weight:800;letter-spacing:12px;text-align:center;outline:none;font-family:inherit">
+        <button onclick="togglePinEye()" id="pin-eye-btn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:6px;color:#64748b">
+            <svg id="pin-eye-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+    </div>
+    <p id="pin-error" style="color:#f87171;font-size:12px;font-weight:700;margin:12px 0 0;min-height:16px;text-align:center"></p>
+
+    <button onclick="submitPin()" style="width:100%;max-width:240px;margin-top:14px;padding:14px;border-radius:16px;background:#6366f1;color:#fff;border:none;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">Entrar</button>
+    <button onclick="showPinRecovery()" style="background:none;border:none;color:#818cf8;font-size:12px;font-weight:700;cursor:pointer;margin-top:16px;font-family:inherit;text-decoration:underline">¿Olvidaste tu PIN?</button>
+    <button onclick="cancelPin()" style="background:none;border:none;color:#475569;font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;font-family:inherit">‹ Elegir otro usuario</button>
+
+    <!-- Recuperación -->
+    <div id="pin-recovery" style="display:none;position:absolute;inset:0;background:rgba(15,23,42,0.97);flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
+        <div style="font-size:40px;margin-bottom:12px">🔑</div>
+        <h3 style="color:#fff;font-size:18px;font-weight:800;margin:0 0 8px;text-align:center">Recuperar PIN</h3>
+        <p id="pin-recovery-text" style="color:#94a3b8;font-size:13px;font-weight:600;margin:0 0 20px;text-align:center;line-height:1.6;max-width:300px"></p>
+        <div id="pin-recovery-actions" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"></div>
+        <button onclick="document.getElementById('pin-recovery').style.display='none'" style="background:none;border:none;color:#64748b;font-size:12px;font-weight:700;cursor:pointer;margin-top:22px;font-family:inherit">‹ Volver</button>
+    </div>
 </div>
 
 <!-- BANNER DE INSTALACIÓN -->
@@ -348,8 +378,9 @@
 
         <div class="px-4 mt-5 space-y-4">
             <div>
-                <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Nombre de la trabajadora</label>
-                <input type="text" id="settingName" class="input-field" placeholder="Ej: María" oninput="renderColorPickers()">
+                <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Niñeras <span class="normal-case font-semibold">(una por línea)</span></label>
+                <textarea id="settingName" class="input-field" rows="3" style="resize:none" placeholder="Ej: María&#10;Ana" oninput="renderColorPickers()"></textarea>
+                <p class="text-[10px] text-slate-400 mt-1.5">Agrega otra en una línea nueva. Las anteriores quedan registradas.</p>
             </div>
             <div>
                 <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Tarifa diaria por defecto</label>
@@ -368,6 +399,29 @@
             </div>
 
             <button onclick="saveSettings()" class="w-full py-4 bg-indigo-600 text-white font-extrabold rounded-2xl text-sm">Guardar cambios</button>
+
+            <!-- ── Seguridad: PINs (solo papá/mamá) ── -->
+            <div id="pinAdminSection" class="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                <div>
+                    <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">PIN del papá y de la mamá</label>
+                    <div id="pinPayers" class="space-y-2"></div>
+                </div>
+                <div>
+                    <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">PIN de las niñeras</label>
+                    <div id="pinWorkers" class="space-y-2"></div>
+                </div>
+                <div>
+                    <label class="text-[11px] font-extrabold text-slate-400 uppercase mb-1.5 block">Contacto de recuperación</label>
+                    <input type="text" id="recoveryName" class="input-field mb-2" placeholder="Nombre (ej: Papá Carlos)">
+                    <input type="tel" id="recoveryPhone" class="input-field" placeholder="Teléfono (ej: +56912345678)">
+                    <p class="text-[10px] text-slate-400 mt-1.5">Si alguien olvida su PIN, la app le mostrará este contacto para pedir ayuda.</p>
+                </div>
+                <button onclick="savePins()" class="w-full py-3.5 bg-slate-800 dark:bg-slate-700 text-white font-extrabold rounded-2xl text-sm">Guardar PINs y contacto</button>
+                <p class="text-[10px] text-slate-400 leading-relaxed">El PIN es un bloqueo simple para evitar confusiones entre usuarios, no una protección de seguridad: quien tenga acceso al dispositivo o a la nube podría verlo.</p>
+            </div>
+            <div id="pinAdminLocked" class="pt-3 border-t border-slate-100 dark:border-slate-800" style="display:none">
+                <p class="text-[11px] font-semibold text-slate-400">🔒 La configuración de PINs solo está disponible para el papá o la mamá.</p>
+            </div>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -828,6 +882,13 @@
         if(!appData.entries) appData.entries = {};
         if(!appData.messages) appData.messages = [];
         if(!appData.seenBy) appData.seenBy = {};
+        // Varias niñeras: migrar desde workerName (la existente nunca se borra)
+        if(!appData.settings.workers || !appData.settings.workers.length) {
+            appData.settings.workers = [appData.settings.workerName || 'Niñera'];
+        }
+        appData.settings.workerName = appData.settings.workers[0];
+        if(!appData.settings.pins) appData.settings.pins = {};
+        if(!appData.settings.recovery) appData.settings.recovery = { name:'', phone:'' };
         migrateEntryNames();
     }
 
@@ -892,6 +953,24 @@
         return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     }
 
+    // ── Personas registradas ──────────────────────────────
+    function getPayers()  { const p = appData.settings.payers;  return (p && p.length) ? p : ['Papá','Mamá']; }
+    function getWorkers() { const w = appData.settings.workers; return (w && w.length) ? w : [appData.settings.workerName || 'Niñera']; }
+    function getAllPeople() { return [...new Set([...getPayers(), ...getWorkers()])]; }
+
+    // El PIN guardado de una persona (tolerante a acentos/mayúsculas)
+    function pinOf(name) {
+        const pins = appData.settings.pins || {};
+        if(pins[name]) return pins[name];
+        for(const [k, v] of Object.entries(pins)) if(nameMatches(k, name)) return v;
+        return '';
+    }
+    // ¿La identidad activa es un pagador (papá/mamá)?
+    function isPayerIdentity() {
+        const me = myIdentity();
+        return getPayers().some(p => nameMatches(p, me));
+    }
+
     // ¿Son la misma persona? Igual normalizado, o uno es el primer nombre del otro
     // ("Papá" coincide con "Papá Carlos")
     function nameMatches(a, b) {
@@ -914,7 +993,9 @@
         const payers = (s.payers && s.payers.length) ? s.payers : ['Papá','Mamá'];
         let idx = payers.findIndex(p => nameMatches(p, name));
         if(idx < 0) {
-            if(name && nameMatches(name, s.workerName || 'Niñera')) idx = payers.length;
+            const workers = (s.workers && s.workers.length) ? s.workers : [s.workerName || 'Niñera'];
+            const wi = workers.findIndex(w => nameMatches(w, name));
+            if(wi >= 0) idx = payers.length + wi;
             else {
                 let h = 0;
                 for(const ch of String(name||'')) h = (h*31 + ch.charCodeAt(0)) >>> 0;
@@ -977,7 +1058,9 @@
     // ═══════════════════════════════════
     function renderCalendar() {
         document.getElementById('monthLabel').textContent = `${monthNames[currentMonth]} ${currentYear}`;
-        document.getElementById('calWorkerName').textContent = appData.settings.workerName || 'Registro Niñera';
+        const _ws = getWorkers();
+        document.getElementById('calWorkerName').textContent =
+            _ws.length > 1 ? _ws.join(' · ') : (_ws[0] || 'Registro Niñera');
 
         const grid = document.getElementById('calGrid');
         const today = new Date();
@@ -1356,7 +1439,7 @@
         const r = calcReport();
         const periodo = reportRange === 'month' ? `${monthNames[repMonth]} ${repYear}`
                       : reportRange === 'year'  ? `Año ${repYear}` : 'Historial completo';
-        const worker = appData.settings.workerName || 'Niñera';
+        const worker = getWorkers().join(' · ') || 'Niñera';
         const fecha = ds => {
             const d = new Date(ds + 'T00:00:00');
             return `${dNShort[d.getDay()]} ${String(d.getDate()).padStart(2,' ')} ${monthNames[d.getMonth()].slice(0,3).toLowerCase()} ${d.getFullYear()}`;
@@ -1543,36 +1626,105 @@
     function loadSettingsForm() {
         const r = appData.settings.rate||0;
         document.getElementById('settingRate').value = r ? Number(r).toLocaleString('es-CL') : '';
-        document.getElementById('settingName').value = appData.settings.workerName||'';
+        document.getElementById('settingName').value = getWorkers().join('\n');
         document.getElementById('settingPayers').value = (appData.settings.payers||[]).join('\n');
         document.getElementById('settingIdentity').value = localStorage.getItem(MSG_IDENTITY_KEY)||'';
         _colorChoices = Object.assign({}, appData.settings.colors || {});
         renderColorPickers();
+        renderPinAdmin();
+    }
+
+    // ── Administración de PINs (solo papá/mamá) ───────────
+    function renderPinAdmin() {
+        const pins = appData.settings.pins || {};
+        const anyPin = Object.values(pins).some(Boolean);
+        const allowed = isPayerIdentity() || !anyPin;   // sin PINs aún, cualquiera puede configurar el primero
+        document.getElementById('pinAdminSection').style.display = allowed ? 'block' : 'none';
+        document.getElementById('pinAdminLocked').style.display = allowed ? 'none' : 'block';
+        if(!allowed) return;
+
+        const row = name => {
+            const c = getPayerColor(name);
+            const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+            const id = 'pin-f-' + btoa(unescape(encodeURIComponent(name))).replace(/[^A-Za-z0-9]/g,'');
+            return `<div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded-2xl px-3 py-2">
+                <span class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-extrabold text-white shrink-0" style="background:${c.grad}">${initials}</span>
+                <span class="text-xs font-extrabold text-slate-700 dark:text-slate-200 truncate" style="width:78px">${name}</span>
+                <div class="relative flex-1 min-w-0">
+                    <input id="${id}" data-person="${name.replace(/"/g,'&quot;')}" type="password" inputmode="numeric" maxlength="4" placeholder="Sin PIN"
+                        value="${pinOf(name)}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4)"
+                        class="w-full pr-9 px-3 py-2 rounded-xl bg-white dark:bg-slate-700 dark:text-white text-sm font-extrabold outline-none border border-slate-200 dark:border-slate-600" style="letter-spacing:4px">
+                    <button type="button" onclick="togglePinField('${id}', this)" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 p-1">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+            </div>`;
+        };
+        document.getElementById('pinPayers').innerHTML  = getPayers().map(row).join('');
+        document.getElementById('pinWorkers').innerHTML = getWorkers().map(row).join('');
+        const rec = appData.settings.recovery || {};
+        document.getElementById('recoveryName').value  = rec.name  || '';
+        document.getElementById('recoveryPhone').value = rec.phone || '';
+    }
+
+    function togglePinField(id, btn) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        const showing = el.type === 'text';
+        el.type = showing ? 'password' : 'text';
+        btn.querySelector('svg').innerHTML = showing
+            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+            : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    }
+
+    function savePins() {
+        const pins = {};
+        document.querySelectorAll('#pinPayers input, #pinWorkers input').forEach(inp => {
+            const person = inp.dataset.person;
+            const val = (inp.value || '').replace(/\D/g,'').slice(0,4);
+            if(person && val.length === 4) pins[person] = val;
+            else if(person && val.length > 0) { /* incompleto: se ignora */ }
+        });
+        const incomplete = [...document.querySelectorAll('#pinPayers input, #pinWorkers input')]
+            .some(i => { const v = (i.value||'').replace(/\D/g,''); return v.length > 0 && v.length < 4; });
+        if(incomplete) { showToast('Los PIN deben tener 4 dígitos'); return; }
+        appData.settings.pins = pins;
+        appData.settings.recovery = {
+            name:  document.getElementById('recoveryName').value.trim(),
+            phone: document.getElementById('recoveryPhone').value.trim()
+        };
+        appData.settings.updatedAt = new Date().toISOString();
+        save();
+        showToast('PINs guardados 🔒');
     }
 
     // ── Selector de color por persona ──────────────────
     let _colorChoices = {};
 
     function _formNames() {
-        const worker = document.getElementById('settingName').value.trim() || 'Niñera';
+        let workers = document.getElementById('settingName').value.split('\n').map(w=>w.trim()).filter(Boolean);
+        if(!workers.length) workers = ['Niñera'];
         let payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
         if(!payers.length) payers = ['Papá','Mamá'];
-        return { payers, worker, names: [...new Set([...payers, worker])] };
+        return { payers, workers, names: [...new Set([...payers, ...workers])] };
     }
 
-    function _chosenIdx(name, payers, worker) {
+    function _chosenIdx(name, payers, workers) {
         if(_colorChoices[name] !== undefined) return _colorChoices[name];
         let idx = payers.indexOf(name);
-        if(idx < 0) idx = (name === worker) ? payers.length : 0;
+        if(idx < 0) {
+            const wi = workers.indexOf(name);
+            idx = wi >= 0 ? payers.length + wi : 0;
+        }
         return idx % palette.length;
     }
 
     function renderColorPickers() {
         const cont = document.getElementById('colorPickers');
         if(!cont) return;
-        const { payers, worker, names } = _formNames();
+        const { payers, workers, names } = _formNames();
         cont.innerHTML = names.map(name => {
-            const chosen = _chosenIdx(name, payers, worker);
+            const chosen = _chosenIdx(name, payers, workers);
             const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
             const safeName = name.replace(/'/g,"\\'");
             const dots = palette.map((p, i) =>
@@ -1595,10 +1747,12 @@
 
     function saveSettings() {
         appData.settings.rate = parseAmount(document.getElementById('settingRate').value);
-        appData.settings.workerName = document.getElementById('settingName').value.trim() || 'Niñera';
+        const workers = document.getElementById('settingName').value.split('\n').map(w=>w.trim()).filter(Boolean);
+        appData.settings.workers = workers.length ? workers : ['Niñera'];
+        appData.settings.workerName = appData.settings.workers[0];
         appData.settings.payers = document.getElementById('settingPayers').value.split('\n').map(p=>p.trim()).filter(Boolean);
         // Guardar colores elegidos (solo de personas que siguen existiendo)
-        const validNames = new Set([...appData.settings.payers, appData.settings.workerName]);
+        const validNames = new Set([...appData.settings.payers, ...appData.settings.workers]);
         const colors = {};
         Object.entries(_colorChoices).forEach(([n, i]) => { if(validNames.has(n)) colors[n] = i; });
         appData.settings.colors = colors;
@@ -1759,17 +1913,22 @@
     function showIdentityScreen() {
         const screen = document.getElementById('identity-screen');
         const container = document.getElementById('identity-options');
-        const payers = (appData.settings.payers && appData.settings.payers.length) ? appData.settings.payers : ['Papá', 'Mamá'];
-        const workerName = appData.settings.workerName || 'Niñera';
-        const names = [...new Set([...payers, workerName])];
-        container.innerHTML = names.map((name, i) => {
+        const sectionTitle = t => `<p style="color:#475569;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;margin:6px 0 2px">${t}</p>`;
+        const personBtn = name => {
             const c = getPayerColor(name);
             const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-            return `<button onclick="selectIdentity('${name.replace(/'/g,"\\'")}')" style="width:100%;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);border-radius:18px;padding:16px 20px;cursor:pointer;font-family:inherit;text-align:left;transition:background 0.15s" ontouchstart="" onmouseenter="this.style.background='rgba(255,255,255,0.14)'" onmouseleave="this.style.background='rgba(255,255,255,0.07)'">
-                <div style="width:44px;height:44px;border-radius:14px;background:${c.grad};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;flex-shrink:0">${initials}</div>
-                <span style="color:#fff;font-size:17px;font-weight:800">${name}</span>
+            const locked = pinOf(name)
+                ? `<svg width="15" height="15" fill="none" stroke="#64748b" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:auto;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+                : '';
+            return `<button onclick="selectIdentity('${name.replace(/'/g,"\\'")}')" style="width:100%;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);border-radius:18px;padding:14px 18px;cursor:pointer;font-family:inherit;text-align:left;transition:background 0.15s" ontouchstart="" onmouseenter="this.style.background='rgba(255,255,255,0.14)'" onmouseleave="this.style.background='rgba(255,255,255,0.07)'">
+                <div style="width:42px;height:42px;border-radius:14px;background:${c.grad};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;flex-shrink:0">${initials}</div>
+                <span style="color:#fff;font-size:16px;font-weight:800">${name}</span>${locked}
             </button>`;
-        }).join('');
+        };
+        const payers = getPayers(), workers = getWorkers();
+        container.innerHTML =
+            sectionTitle('Padres') + payers.map(personBtn).join('') +
+            sectionTitle(workers.length > 1 ? 'Niñeras' : 'Niñera') + workers.map(personBtn).join('');
 
         // Countdown usando el botón estático en el HTML
         let secs = 15;
@@ -1797,7 +1956,15 @@
 
     function selectIdentity(name) {
         if(identityTimer) { clearInterval(identityTimer); identityTimer = null; }
+        // Si esa persona tiene PIN, pedirlo antes de entrar
+        if(pinOf(name)) { showPinScreen(name); return; }
+        finishIdentity(name);
+    }
+
+    function finishIdentity(name) {
         localStorage.setItem(MSG_IDENTITY_KEY, name);
+        const pinS = document.getElementById('pin-screen');
+        if(pinS) pinS.style.display = 'none';
         const screen = document.getElementById('identity-screen');
         screen.style.opacity = '0';
         setTimeout(() => {
@@ -1805,7 +1972,76 @@
             showToast('Hola, ' + name + ' 👋');
             updateUserAvatar();
             setupNotifications();
+            if(currentViewName === 'settings') loadSettingsForm();
         }, 420);
+    }
+
+    // ── PIN de acceso ─────────────────────────────────────
+    let _pinFor = null;
+
+    function showPinScreen(name) {
+        _pinFor = name;
+        const c = getPayerColor(name);
+        const av = document.getElementById('pin-avatar');
+        av.style.background = c.grad;
+        av.textContent = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+        document.getElementById('pin-name').textContent = name;
+        const inp = document.getElementById('pin-input');
+        inp.value = ''; inp.type = 'password';
+        document.getElementById('pin-error').textContent = '';
+        document.getElementById('pin-recovery').style.display = 'none';
+        document.getElementById('pin-screen').style.display = 'flex';
+        setTimeout(() => inp.focus(), 250);
+    }
+
+    function onPinInput() {
+        const inp = document.getElementById('pin-input');
+        inp.value = inp.value.replace(/\D/g, '').slice(0, 4);
+        document.getElementById('pin-error').textContent = '';
+        if(inp.value.length === 4) setTimeout(submitPin, 120);   // validar solo
+    }
+
+    function submitPin() {
+        const inp = document.getElementById('pin-input');
+        if(inp.value.length < 4) return;
+        if(inp.value === pinOf(_pinFor)) { finishIdentity(_pinFor); return; }
+        document.getElementById('pin-error').textContent = 'PIN incorrecto, intenta de nuevo';
+        inp.value = '';
+        if('vibrate' in navigator) navigator.vibrate(200);
+    }
+
+    function togglePinEye() {
+        const inp = document.getElementById('pin-input');
+        const showing = inp.type === 'text';
+        inp.type = showing ? 'password' : 'text';
+        document.getElementById('pin-eye-icon').innerHTML = showing
+            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+            : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+        inp.focus();
+    }
+
+    function cancelPin() {
+        document.getElementById('pin-screen').style.display = 'none';
+        _pinFor = null;
+        showIdentityScreen();
+    }
+
+    function showPinRecovery() {
+        const rec = appData.settings.recovery || {};
+        const txt = document.getElementById('pin-recovery-text');
+        const acts = document.getElementById('pin-recovery-actions');
+        if(rec.phone) {
+            txt.textContent = `Comunícate con ${rec.name || 'el administrador'} para recuperar tu PIN. Solo esa persona puede verlo y cambiarlo desde Configuración.`;
+            const tel = rec.phone.replace(/[^\d+]/g, '');
+            const wa = tel.replace(/\D/g, '');
+            acts.innerHTML = `
+                <a href="tel:${tel}" style="background:#6366f1;color:#fff;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:800;text-decoration:none">📞 Llamar</a>
+                <a href="https://wa.me/${wa}" target="_blank" rel="noopener" style="background:#10b981;color:#fff;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:800;text-decoration:none">💬 WhatsApp</a>`;
+        } else {
+            txt.textContent = 'Aún no se ha configurado un contacto de recuperación. Pídele al papá o la mamá que lo agregue en Configuración › Contacto de recuperación.';
+            acts.innerHTML = '';
+        }
+        document.getElementById('pin-recovery').style.display = 'flex';
     }
 
     async function setupNotifications() {
