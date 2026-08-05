@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <title>Registro Niñera</title>
-    <meta name="app-version" content="2.21.0">
+    <meta name="app-version" content="2.21.1">
     <link rel="manifest" href="manifest.json">
 
     <!-- Tema y color -->
@@ -998,18 +998,34 @@
         return null;
     }
 
-    // Migración: los días trabajados antiguos (clave sin @) pasan a la primera niñera
+    // Migración: los días trabajados antiguos (clave sin @) pasan a la primera niñera,
+    // y las variantes del nombre se unifican con la niñera registrada.
+    // Es idempotente: colapsa duplicados en vez de crearlos.
     function migrateEntriesToWorkers() {
-        const first = getWorkers()[0];
+        const workers = getWorkers();
+        const first = workers[0];
         const ents = appData.entries || {};
         Object.keys(ents).forEach(k => {
-            if(k.indexOf('@') >= 0) return;
             const e = ents[k];
-            if(!e || !e.worked) return;              // los no trabajados quedan compartidos
-            const w = e.worker || first;
-            const nk = eKey(k, w);
-            if(!ents[nk]) { e.worker = w; ents[nk] = e; }
-            delete ents[k];
+            if(!e) return;
+            const w = workerOfKey(k);
+            if(w === null) {
+                if(!e.worked) return;                // los no trabajados quedan compartidos
+                const target = workers.find(x => nameMatches(x, e.worker || first)) || first;
+                const nk = eKey(k, target);
+                if(!ents[nk]) { e.worker = target; ents[nk] = e; }
+                delete ents[k];                      // si ya existía, se descarta el duplicado
+            } else {
+                // Si el nombre ya no existe y solo hay una niñera, los días son suyos
+                // (caso típico: se renombró de "Niñera" a su nombre real)
+                let canon = workers.find(x => nameMatches(x, w));
+                if(!canon && workers.length === 1) canon = first;
+                if(canon && canon !== w) {
+                    const nk = eKey(dateOfKey(k), canon);
+                    if(!ents[nk]) { e.worker = canon; ents[nk] = e; }
+                    delete ents[k];
+                } else if(canon) e.worker = canon;
+            }
         });
     }
 
@@ -1090,9 +1106,13 @@
         let pending=0, pendingDays=0, pendingOtherMonths=0;
         const byPayer = {};
         const cw = currentWorker();
+        const seenDates = new Set();
         Object.entries(appData.entries).forEach(([k,e]) => {
             if(!e.worked) return;
             if(!nameMatches(entryWorker(k, e), cw)) return;   // solo los días de esta niñera
+            const _d = dateOfKey(k);
+            if(seenDates.has(_d)) return;                     // nunca contar un día dos veces
+            seenDates.add(_d);
             const isThisMonth = k.startsWith(prefix);
             if(isThisMonth) days++;
             if(e.isPaid && e.paidBy) {
@@ -1318,9 +1338,13 @@
         const monthly = {};     // 'YYYY-MM' -> { paid, pending, days }
 
         const cw = currentWorker();
+        const seenDates = new Set();
         Object.entries(appData.entries).forEach(([k, e]) => {
             if(!e || !e.worked) return;
             if(!nameMatches(entryWorker(k, e), cw)) return;   // solo los días de esta niñera
+            const _d = dateOfKey(k);
+            if(seenDates.has(_d)) return;                     // nunca contar un día dos veces
+            seenDates.add(_d);
             // Filtro por persona: solo lo de esa persona (pagado o por pagar)
             if(reportPerson && !(e.paidBy && nameMatches(e.paidBy, reportPerson))) return;
             const ym = k.slice(0, 7);
@@ -1628,14 +1652,23 @@
 
         const cw = currentWorker();
         const mine = ([k,e]) => e.worked && nameMatches(entryWorker(k, e), cw);
+        // Nunca listar la misma fecha dos veces
+        const dedupeByDate = arr => {
+            const seen = new Set();
+            return arr.filter(([k]) => {
+                const d = dateOfKey(k);
+                if(seen.has(d)) return false;
+                seen.add(d); return true;
+            });
+        };
         // Pendientes: TODOS los meses (deuda acumulada, no desaparece al cambiar de mes)
-        let pendingList = Object.entries(appData.entries)
+        let pendingList = dedupeByDate(Object.entries(appData.entries)
             .filter(en => mine(en) && !en[1].isPaid)
-            .sort(([a],[b]) => a.localeCompare(b));
+            .sort(([a],[b]) => a.localeCompare(b)));
         // Pagados: solo del mes en curso
-        let paidList = Object.entries(appData.entries)
+        let paidList = dedupeByDate(Object.entries(appData.entries)
             .filter(en => mine(en) && en[0].startsWith(prefix) && en[1].isPaid)
-            .sort(([a],[b]) => a.localeCompare(b));
+            .sort(([a],[b]) => a.localeCompare(b)));
 
         // Filtro por tarjeta: pendientes, o todo lo de una persona
         if(fPending) paidList = [];
@@ -2663,6 +2696,9 @@
             const cloud = remote.payload;
             // Entradas: unión — local gana en mismo día (acaba de guardarse)
             appData.entries = Object.assign({}, cloud.entries||{}, appData.entries||{});
+            // La nube puede traer claves antiguas (sin @) que duplicarían el día
+            migrateEntryNames();
+            migrateEntriesToWorkers();
             // Mensajes: unión deduplicada (preserva reacciones)
             appData.messages = mergeMessages(cloud.messages, appData.messages);
             // seenBy: tomar el máximo ts por usuario
@@ -2732,6 +2768,12 @@
             if(!appData.settings) appData.settings = { rate:0, workerName:'Niñera', payers:['Papá','Mamá'] };
             if(!appData.entries) appData.entries = {};
             if(!appData.messages) appData.messages = [];
+            if(!appData.seenBy) appData.seenBy = {};
+            if(!appData.settings.workers || !appData.settings.workers.length)
+                appData.settings.workers = [appData.settings.workerName || 'Niñera'];
+            // Colapsar claves antiguas para que un día no aparezca dos veces
+            migrateEntryNames();
+            migrateEntriesToWorkers();
             localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
             // Subir el resultado mezclado de vuelta a la nube
             await cloudPush();
